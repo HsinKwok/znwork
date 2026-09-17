@@ -124,6 +124,16 @@ crons = ["* * * * *"]
   （该域名所在 zone 需已托管在同一 Cloudflare 账号下），
   或在 Dashboard 的 Worker → Settings → Triggers → Custom Domains 中添加。
 
+## 访问地址
+
+| 入口 | 路径 | 说明 |
+| --- | --- | --- |
+| 前台 | `/` | 最新报价、历史走势、月均价 |
+| 后台 | `/admin`（`/admin.html` 等价） | 管理员账号密码登录后进入 |
+
+- 默认域名：`https://<worker-name>.<your-subdomain>.workers.dev/`
+- 绑定自定义域名后：`https://<your-domain>/`
+
 ## 本地开发
 
 ```bash
@@ -154,6 +164,108 @@ npm run dev
 
 > 敏感配置统一存放在 D1 的 `system_settings` 及各配置表中，不写进 `wrangler.toml`。
 
+## API 接口
+
+除后台管理与推送触发外，查询类接口均为公开访问，无需鉴权。
+
+| 接口 | 方法 | 说明 |
+| --- | --- | --- |
+| `/api/price/latest?product=<code>` | GET | 最新报价 |
+| `/api/price/history?product=<code>&days=<n>` | GET | 历史报价 |
+| `/api/price/monthly?product=<code>&month=<YYYY-MM>` | GET | 月均价 |
+| `/api/price/products` | GET | 产品列表 |
+| `/api/price/last-update` | GET | 最后更新时间 |
+| `/api/price/settings` | GET | 前台公开设置 |
+| `/api/price/admin/login` | POST | 管理员登录，返回 JWT |
+| `/api/price/admin/setup` | POST | 首次创建管理员（仅管理员表为空时可用） |
+| `/api/price/manual` | POST | 手工补录数据（Bearer Token） |
+| `/api/price/webhook` | POST | 外部系统推送报价 |
+| `/api/price/push/<id>?key=<push_key>` | GET | 触发微信推送 |
+
+### 获取最新报价
+
+```bash
+curl "https://<your-domain>/api/price/latest?product=zinc0"
+```
+
+```json
+{
+  "prices": [
+    {
+      "product_code": "zinc0",
+      "product_name": "0#锌锭",
+      "unit": "元/吨",
+      "trade_date": "2026-08-28",
+      "low_price": 26500.00,
+      "high_price": 26900.00,
+      "avg_price": 26700.00,
+      "change_value": 100.00,
+      "change_percent": 0.38,
+      "monthly_avg": 26395.71
+    }
+  ]
+}
+```
+
+### Webhook 接收接口（外部系统推送报价）
+
+- **URL**: `POST /api/price/webhook`（或 `POST /api/price/webhook/<配置ID>`）
+- **认证**: 按后台 Webhook 配置的 `auth_type` 校验，默认读取请求头 `X-Webhook-Key`
+  （也可配置为查询参数或不校验）
+- **功能**: 接收采集器 / ERP 推送的报价数据，字段路径可在后台逐项映射
+
+### 推送触发接口（向微信 Webhook 播报）
+
+- **URL**: `GET /api/price/push/<推送配置ID>?key=<push_key>`
+- **认证**: URL 参数密钥（在后台推送配置中生成）
+- **功能**: 触发后按配置的产品与消息模板推送最新报价，可交由定时任务周期调用
+
+## 数据模型
+
+### 产品表 (products)
+
+- `id`: 主键
+- `code`: 产品代码（唯一标识，通过管理后台配置）
+- `name`: 产品名称
+- `unit`: 价格单位
+- `spec` / `sort_order` / `is_active`: 规格、排序、启用开关
+
+### 日价格表 (daily_prices)
+
+- `product_id`: 产品ID
+- `trade_date` / `collect_date`: 交易日期 / 采集日期
+- `low_price` / `high_price`: 最低价 / 最高价
+- `avg_price`: 日均价（自动计算 `(low+high)/2`）
+- `change_value` / `change_percent`: 涨跌值 / 涨跌幅
+- `source`: 数据来源（`api` / `manual` / `webhook`）
+
+> `UNIQUE(product_id, trade_date)` 保证同一产品同一交易日只有一条记录。
+
+### 月均价表 (monthly_averages)
+
+- `product_id` / `year_month`: 产品ID / 年月（YYYY-MM）
+- `avg_price`: 月均价（由应用层在报价数据增删改后自动重算）
+- `days_count`: 参与计算的天数
+- `low_price` / `high_price`: 当月最低价 / 最高价
+
+### 其他表
+
+- `webhook_configs` / `webhook_logs`: 外部系统推送配置与调用日志
+- `push_configs`: 微信 Webhook 推送配置（绑定产品、消息模板、推送密钥）
+- `system_settings`: 系统设置与密钥（`jwt_secret`、前台标题等）
+- `admin_users`: 管理员账号（PBKDF2 密码哈希）
+- `api_logs`: 数据采集日志
+- `login_attempts`: 登录失败限流记录
+- `cron_jobs` / `cron_logs`: 后台定时任务配置与执行日志
+
+## 移动端适配
+
+系统通过 `price-styles.css`（基础布局与 ≤480px 断点）与 `price-mobile.css`（≤768px 移动端优化）协同实现响应式设计：
+
+- 手机端: 单列布局，卡片式展示
+- 平板端: 优化布局和字体大小
+- 桌面端: 完整表格布局
+
 ## 安全说明
 
 - 不预置默认管理员账号与默认密钥，避免弱口令与硬编码密钥
@@ -161,7 +273,37 @@ npm run dev
 - 后台 Token 使用 HMAC-SHA256 签名，签名密钥随机生成并持久化
 - 登录失败限流记录落库（D1），跨 isolate 与冷启动生效
 - Webhook 与推送使用独立密钥鉴权，不复用管理员凭据
+- Worker 会校验输入数据的格式与范围
 - `.dev.vars`、`node_modules/`、`.wrangler/` 已加入 `.gitignore`，请勿提交
+
+## 注意事项
+
+1. **密钥安全**: 确保 Webhook 密钥（`webhook_key`）、推送密钥（`push_key`）与管理员 JWT Token 保密，并定期更换
+2. **移动端测试**: 建议在不同设备上测试响应式效果
+3. **打印功能**: 前台页面支持打印格式化数据
+4. **数据备份**: 定期备份 D1 数据库数据
+
+## 故障排除
+
+### 数据库连接失败
+
+- 检查 `wrangler.toml` 中的 `database_id` 是否正确
+- 确认数据库已创建并初始化
+
+### API 认证失败
+
+- 验证请求头中的 Bearer Token 是否有效或已过期
+- 检查 Webhook / 推送密钥是否与后台配置一致
+
+### 前端页面无法加载
+
+- 检查 Worker 部署状态
+- 确认路由与 `[assets]` 配置正确
+
+### 定时任务不执行
+
+- 确认 `wrangler.toml` 中 `[triggers] crons` 未被删除，且已重新部署
+- 在后台查看「心跳」时间是否更新，未更新说明 Cron 未触发
 
 ## 许可
 
