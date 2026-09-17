@@ -1,0 +1,3135 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>报价系统后台管理</title>
+    <link rel="stylesheet" href="/assets/css/bootstrap.min.css">
+    <link rel="stylesheet" href="/assets/css/font-awesome.min.css">
+    <link rel="stylesheet" href="/base.css">
+    <link rel="stylesheet" href="/price-admin.css">
+</head>
+<body>
+    <!-- 首次部署：创建管理员账号 -->
+    <div class="login-overlay" id="setupOverlay" style="display: none;">
+        <div class="login-box">
+            <h2><i class="fa fa-user-plus"></i>创建管理员</h2>
+            <p class="subtitle">系统中尚无管理员账号，请创建第一个管理员</p>
+            <form id="setup-form" onsubmit="return false;">
+                <div class="form-group">
+                    <label>用户名</label>
+                    <input type="text" class="form-control" name="username" placeholder="请输入用户名（3-32位）" required minlength="3" maxlength="32" autofocus>
+                </div>
+                <div class="form-group">
+                    <label>密码</label>
+                    <input type="password" class="form-control" name="password" placeholder="请输入密码（至少8位）" required minlength="8">
+                </div>
+                <div class="form-group">
+                    <label>确认密码</label>
+                    <input type="password" class="form-control" name="confirm" placeholder="请再次输入密码" required minlength="8">
+                </div>
+                <button type="button" class="btn btn-primary btn-block" id="setupBtn" onclick="initSetup()">
+                    <i class="fa fa-check"></i> 创建管理员
+                </button>
+            </form>
+            <div class="login-error" id="setupError"></div>
+            <p style="text-align: center; margin-top: 10px; font-size: 13px;">
+                <a href="javascript:showLogin()" style="color: #94a3b8; text-decoration: none;">← 返回登录</a>
+            </p>
+        </div>
+    </div>
+
+    <!-- 登录界面 -->
+    <div class="login-overlay" id="loginOverlay" style="display: none;">
+        <div class="login-box">
+            <h2><i class="fa fa-lock"></i> 后台管理登录</h2>
+            <p class="subtitle">报价系统后台管理</p>
+            <form id="login-form" onsubmit="return false;">
+                <div class="form-group">
+                    <label>用户名</label>
+                    <input type="text" class="form-control" name="username" placeholder="请输入用户名" required autofocus>
+                </div>
+                <div class="form-group">
+                    <label>密码</label>
+                    <input type="password" class="form-control" name="password" placeholder="请输入密码" required>
+                </div>
+                <button type="button" class="btn btn-primary btn-block" id="loginBtn" onclick="login()">
+                    <i class="fa fa-sign-in"></i> 登录
+                </button>
+            </form>
+            <div class="login-error" id="loginError"></div>
+            <p id="setup-link-wrap" style="text-align: center; margin-top: 15px; font-size: 13px; display: none;">
+                <a href="javascript:showSetup()" style="color: #2563eb; text-decoration: none;">首次部署？创建管理员账号</a>
+            </p>
+        </div>
+    </div>
+
+    <!-- 侧边栏 -->
+    <div class="sidebar" id="adminSidebar" style="display: none;">
+        <div class="sidebar-header">
+            <h3><i class="fa fa-cogs"></i> 报价系统管理</h3>
+            <p class="text-muted" style="color: rgba(255,255,255,0.6); font-size: 12px;">管理员：<span id="sidebar-username">admin</span></p>
+        </div>
+        <ul class="sidebar-menu">
+            <li><a href="#dashboard" class="active"><i class="fa fa-dashboard"></i> <span>数据看板</span></a></li>
+            <li><a href="#manual-input"><i class="fa fa-edit"></i> <span>手工补录</span></a></li>
+            <li><a href="#product-management"><i class="fa fa-cubes"></i> <span>产品类型</span></a></li>
+            <li><a href="#webhook-config"><i class="fa fa-plug"></i> <span>Webhook配置</span></a></li>
+            <li><a href="#push-settings"><i class="fa fa-paper-plane"></i> <span>推送设置</span></a></li>
+            <li><a href="#system-settings"><i class="fa fa-cog"></i> <span>系统设置</span></a></li>
+            <li><a href="#cron-jobs"><i class="fa fa-clock-o"></i> <span>定时任务</span></a></li>
+            <li><a href="../price-frontend.html"><i class="fa fa-external-link"></i> <span>返回前台</span></a></li>
+        </ul>
+    </div>
+    
+    <!-- 主内容区 -->
+    <div class="main-content" id="adminApp" style="display: none;">
+        <!-- 头部 -->
+        <div class="header-bar">
+            <h2 style="margin: 0;"><i class="fa fa-dashboard"></i> 数据看板</h2>
+            <div class="user-info">
+                <span><i class="fa fa-user"></i> 欢迎，<strong id="header-username">admin</strong></span>
+                <button class="btn btn-danger" onclick="logout()" style="padding: 6px 15px; font-size: 13px;">
+                    <i class="fa fa-sign-out"></i> 退出登录
+                </button>
+            </div>
+        </div>
+        
+        <!-- 数据统计卡片 -->
+        <div class="admin-section" id="dashboard-section">
+            <div class="row">
+                <div class="col-md-3 col-sm-6">
+                <div class="content-card">
+                    <h4><i class="fa fa-database" style="color: #3498db;"></i> 总数据量</h4>
+                    <h2 style="color: #1e3a8a; margin: 10px 0;" id="stat-total">-</h2>
+                    <p class="text-muted">条报价记录</p>
+                </div>
+            </div>
+            <div class="col-md-3 col-sm-6">
+                <div class="content-card">
+                    <h4><i class="fa fa-calendar" style="color: #27ae60;"></i> 本月更新</h4>
+                    <h2 style="color: #1e3a8a; margin: 10px 0;" id="stat-monthly">-</h2>
+                    <p class="text-muted">个交易日数据</p>
+                </div>
+            </div>
+            <div class="col-md-3 col-sm-6">
+                <div class="content-card">
+                    <h4><i class="fa fa-refresh" style="color: #f39c12;"></i> 采集成功率</h4>
+                    <h2 style="color: #1e3a8a; margin: 10px 0;" id="stat-success">-%</h2>
+                    <p class="text-muted">最近30天</p>
+                </div>
+            </div>
+            <div class="col-md-3 col-sm-6">
+                <div class="content-card">
+                    <h4><i class="fa fa-clock-o" style="color: #9b59b6;"></i> 最后更新</h4>
+                    <h2 style="color: #1e3a8a; margin: 10px 0;" id="stat-last-time">-</h2>
+                    <p class="text-muted" id="stat-last-date">-</p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 最近报价记录 -->
+            <div class="content-card" id="price-history-section">
+                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 15px;">
+                    <h3 style="margin: 0;"><i class="fa fa-history"></i> 最近报价记录</h3>
+                    <div style="display: flex; flex-wrap: wrap; gap: 10px;">
+                        <button type="button" class="btn btn-danger" id="batch-delete-btn" onclick="batchDeleteRecords()" disabled>
+                            <i class="fa fa-trash-o"></i> 批量删除
+                        </button>
+                        <button type="button" class="btn btn-primary" onclick="exportToCSV()">
+                            <i class="fa fa-download"></i> 导出CSV
+                        </button>
+                        </div>
+                </div>
+                
+                <div class="table-responsive">
+                    <table class="table" id="recent-records-table">
+                        <thead>
+                            <tr>
+                                <th style="width: 40px; text-align: center;">
+                                    <input type="checkbox" id="select-all-records" onclick="toggleSelectAllRecords()" title="全选">
+                                </th>
+                                <th>数据日期</th>
+                                <th>录入时间</th>
+                                <th>产品</th>
+                                <th>价格区间</th>
+                                <th>日均价</th>
+                                <th>涨/跌</th>
+                                <th>月均价</th>
+                                <th>来源</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td colspan="10" class="text-center text-muted">数据加载中...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- 分页控件 -->
+                <div class="pagination-container" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-top: 15px;">
+                    <div class="pagination-info text-muted">
+                        共 <span id="pagination-total">0</span> 条记录，第 <span id="pagination-page">1</span> / <span id="pagination-total-pages">1</span> 页
+                    </div>
+                    <div class="pagination-controls" style="display: flex; gap: 5px; align-items: center; flex-wrap: wrap;">
+                        <button type="button" class="btn btn-sm btn-default" id="page-first" onclick="changePage(1)">首页</button>
+                        <button type="button" class="btn btn-sm btn-default" id="page-prev" onclick="changePage(currentPage - 1)">上一页</button>
+                        <span id="pagination-pages" style="display: flex; gap: 5px;"></span>
+                        <button type="button" class="btn btn-sm btn-default" id="page-next" onclick="changePage(currentPage + 1)">下一页</button>
+                        <button type="button" class="btn btn-sm btn-default" id="page-last" onclick="changePage(totalPages)">末页</button>
+                        <select class="form-control" id="page-size" onchange="changePageSize()" style="width: auto; min-width: 80px; padding-top: 0px; padding-bottom: 0px; padding-left: 10px; padding-right: 10px;">
+                            <option value="10">10条/页</option>
+                            <option value="20" selected>20条/页</option>
+                            <option value="50">50条/页</option>
+                            <option value="100">100条/页</option>
+                        </select>
+                    </div>
+                </div>
+                
+                </div>
+        </div>
+        
+        <!-- 手工补录表单 -->
+        <div class="content-card admin-section" id="manual-input-section" style="display: none;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                    <button type="button" class="btn btn-warning" onclick="calculateAvg()">
+                        <i class="fa fa-calculator"></i> 计算日均价
+                    </button>
+                    <button type="submit" class="btn btn-primary" form="manual-form">
+                        <i class="fa fa-save"></i> 保存数据
+                    </button>
+                </div>
+                <h3 style="margin: 0;"><i class="fa fa-edit"></i> 手工补录数据</h3>
+            </div>
+            <p class="text-muted" style="margin-top: 10px;">当外部系统自动推送不及时时，可在此手动补充报价数据。<br><span style="color: red;">修改已有记录，请在“数据看板” --> “最近报价记录”找到对应记录“编辑”。</span></p>
+            
+            <form id="manual-form">
+                <div class="row">
+                    <div class="col-md-4">
+                        <div class="form-group">
+                            <label>产品类型</label>
+                            <select class="form-control" name="product" id="manual-product-select" required>
+                                <option value="">请选择产品</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="col-md-2">
+                        <div class="form-group">
+                            <label>数据日期</label>
+                            <input type="date" class="form-control" name="date" id="manual-date" required>
+                        </div>
+                    </div>
+                    <div class="col-md-2">
+                        <div class="form-group">
+                            <label>最低价</label>
+                            <input type="number" class="form-control" name="low_price" placeholder="26000" required>
+                        </div>
+                    </div>
+                    <div class="col-md-2">
+                        <div class="form-group">
+                            <label>最高价</label>
+                            <input type="number" class="form-control" name="high_price" placeholder="26380" required>
+                        </div>
+                    </div>
+                    <div class="col-md-2">
+                        <div class="form-group">
+                            <label>涨跌值</label>
+                            <input type="number" class="form-control" name="change" placeholder="-280" required>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label>均价（选填，留空自动计算）</label>
+                            <input type="number" class="form-control" name="avg_price" placeholder="留空则自动 = (最低+最高)/2" step="0.01">
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="row">
+                    <div class="col-md-12">
+                        <div class="form-group">
+                            <label>备注说明</label>
+                            <textarea class="form-control" name="remark" rows="2" placeholder="可填写数据来源或特殊情况说明"></textarea>
+                        </div>
+                    </div>
+                </div>
+            </form>
+        </div>
+        
+        <!-- 产品类型 -->
+        <div class="content-card admin-section" id="product-management-section" style="display: none;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <button type="button" class="btn btn-success" onclick="openProductModal()">
+                    <i class="fa fa-plus"></i> 新增产品类型
+                </button>
+                <h3 style="margin: 0;"><i class="fa fa-cubes"></i> 产品类型</h3>
+            </div>
+            <p class="text-muted" style="margin-top: 10px;">统一管理前台产品分类、单位、规格及显示顺序</p>
+            
+            <div class="table-responsive" style="margin-top: 20px;">
+                <table class="table" id="products-table">
+                    <thead>
+                        <tr>
+                            <th>代码</th>
+                            <th>名称</th>
+                            <th>单位</th>
+                            <th>规格</th>
+                            <th>排序</th>
+                            <th>状态</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td colspan="7" class="text-center text-muted">加载中...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        
+        <!-- Webhook 配置 -->
+        <div class="content-card admin-section" id="webhook-config-section" style="display: none;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <button class="btn btn-primary" onclick="openWebhookModal()">
+                    <i class="fa fa-plus"></i> 新增配置
+                </button>
+                <h3 style="margin: 0;"><i class="fa fa-plug"></i> Webhook 配置</h3>
+            </div>
+            <p class="text-muted" style="margin-top: 10px;">配置外部系统（采集器、ERP 等）的推送接口，支持自定义 JSON 字段映射和密钥验证</p>
+            
+            <div class="table-responsive">
+                <table class="table" id="webhook-table">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>名称</th>
+                            <th>验证方式</th>
+                            <th>字段映射</th>
+                            <th>固定产品</th>
+                            <th>状态</th>
+                            <th>推送地址</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr><td colspan="8" class="text-center">加载中...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+            
+            <div class="panel panel-default" style="margin-top: 30px;">
+                <div class="panel-heading">
+                    <h4 class="panel-title"><i class="fa fa-info-circle"></i> 返回数据说明</h4>
+                </div>
+                <div class="panel-body">
+                    <p class="text-muted">Webhook 处理完成后会返回如下 JSON 格式数据，供推送方识别入库状态：</p>
+                    <pre style="background: rgba(239, 246, 255, 0.8); padding: 12px; border-radius: 6px; margin: 15px 0; border: 1px solid rgba(59, 130, 246, 0.12);">{
+  "success": true,
+  "id": "123",
+  "target": "zinc0",
+  "desc": "成功处理 1/1 条数据",
+  "error": ""
+}</pre>
+                    <table class="table table-bordered" style="margin-bottom: 0;">
+                        <thead>
+                            <tr>
+                                <th>字段</th>
+                                <th>说明</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><code>success</code></td>
+                                <td>入库状态，<code>true</code> 表示成功，<code>false</code> 表示失败</td>
+                            </tr>
+                            <tr>
+                                <td><code>id</code></td>
+                                <td>入库记录的 daily_prices 自增 ID；多条记录时用逗号分隔；失败时为空</td>
+                            </tr>
+                            <tr>
+                                <td><code>target</code></td>
+                                <td>对应的产品代码（如 <code>zinc0</code>）；多条记录时用逗号分隔</td>
+                            </tr>
+                            <tr>
+                                <td><code>desc</code></td>
+                                <td>处理结果描述，失败时与 <code>error</code> 内容一致</td>
+                            </tr>
+                            <tr>
+                                <td><code>error</code></td>
+                                <td>失败时的错误信息，成功时为空字符串</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 推送设置 -->
+        <div class="content-card admin-section" id="push-settings-section" style="display: none;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <button class="btn btn-primary" onclick="openPushModal()">
+                    <i class="fa fa-plus"></i> 新增推送配置
+                </button>
+                <h3 style="margin: 0;"><i class="fa fa-paper-plane"></i> 推送设置</h3>
+            </div>
+            <p class="text-muted" style="margin-top: 10px;">将最新报价数据推送到企业微信群机器人。访问推送地址（携带密钥）即触发一次推送。</p>
+
+            <div class="table-responsive">
+                <table class="table" id="push-table">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>名称</th>
+                            <th>推送产品</th>
+                            <th>消息类型</th>
+                            <th>状态</th>
+                            <th>推送地址（访问即推送）</th>
+                            <th>上次推送</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr><td colspan="8" class="text-center">加载中...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="panel panel-default" style="margin-top: 30px;">
+                <div class="panel-heading">
+                    <h4 class="panel-title"><i class="fa fa-info-circle"></i> 使用说明</h4>
+                </div>
+                <div class="panel-body" style="font-size: 13px;">
+                    <p>1. 在企业微信群中添加「群机器人」，复制其 Webhook 地址填入推送配置。</p>
+                    <p>2. 使用数据拼接工具选择 报价日期、产品名称、日均价、涨/跌 等字段，生成消息模板；可绑定多个产品，推送时每个产品各自渲染最新价格并拼接为一条消息。</p>
+                    <p>3. 保存后系统生成专属推送地址，访问该地址（默认通过 <code>?key=密钥</code> 验证）即向微信 Webhook 推送最新报价消息。</p>
+                    <p>4. 可将该地址配置到「定时任务」或外部调度系统中，实现定时自动播报。</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- 系统设置 -->
+        <div class="content-card admin-section" id="system-settings-section" style="display: none;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <h3 style="margin: 0;"><i class="fa fa-cog"></i> 系统设置</h3>
+                <button type="button" class="btn btn-primary" onclick="saveSettings()">
+                    <i class="fa fa-save"></i> 保存设置
+                </button>
+            </div>
+            <p class="text-muted" style="margin-top: 10px;">统一管理前台标题、数据源等全局参数</p>
+            
+            <form id="settings-form">
+                <div class="row">
+                    <div class="col-md-12">
+                        <h4 style="margin: 25px 0 15px; padding-bottom: 10px; border-bottom: 2px solid rgba(59, 130, 246, 0.12);">
+                            <i class="fa fa-desktop"></i> 前台显示
+                        </h4>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label>前台标题</label>
+                            <input type="text" class="form-control" name="frontend_title" placeholder="报价查询系统">
+                            <p class="text-muted" style="font-size: 12px; margin-top: 5px;">用于页面 title 和顶部标题</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="row">
+                    <div class="col-md-12">
+                        <h4 style="margin: 25px 0 15px; padding-bottom: 10px; border-bottom: 2px solid rgba(59, 130, 246, 0.12);">
+                            <i class="fa fa-database"></i> 数据来源
+                        </h4>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label>数据源名称</label>
+                            <input type="text" class="form-control" name="data_source_name" placeholder="数据源名称">
+                            <p class="text-muted" style="font-size: 12px; margin-top: 5px;">用于页脚“数据来源”和打印标题</p>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label>数据源网址</label>
+                            <input type="url" class="form-control" name="data_source_url" placeholder="https://example.com/">
+                            <p class="text-muted" style="font-size: 12px; margin-top: 5px;">数据源官网地址</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="row">
+                    <div class="col-md-12">
+                        <h4 style="margin: 25px 0 15px; padding-bottom: 10px; border-bottom: 2px solid rgba(59, 130, 246, 0.12);">
+                            <!-- 旧版采集配置已移除 -->
+                        </h4>
+                    </div>
+                </div>
+            </form>
+            
+            <hr style="margin: 40px 0;">
+            
+            <div style="display: flex; justify-content: space-between; align-items: center; margin: 25px 0 15px; padding-bottom: 10px; border-bottom: 2px solid rgba(59, 130, 246, 0.12);">
+                <h4 style="margin: 0; border: none; padding: 0;">
+                    <i class="fa fa-users"></i> 用户管理
+                </h4>
+                <button type="button" class="btn btn-success" onclick="openUserModal()">
+                    <i class="fa fa-plus"></i> 新增用户
+                </button>
+            </div>
+            <p class="text-muted">管理系统后台管理员账号，可新增、编辑、删除管理员</p>
+            
+            <div class="table-responsive" style="margin-top: 20px;">
+                <table class="table" id="users-table">
+                    <thead>
+                        <tr>
+                            <th>用户名</th>
+                            <th>最后登录</th>
+                            <th>创建时间</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td colspan="4" class="text-center text-muted">加载中...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        
+        <!-- 定时任务管理 -->
+        <div class="content-card admin-section" id="cron-jobs-section" style="display: none;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <div style="display: flex; gap: 10px;">
+                    <button type="button" class="btn btn-success" onclick="openCronModal()">
+                        <i class="fa fa-plus"></i> 新增任务
+                    </button>
+                    <button type="button" class="btn btn-primary" onclick="batchRunCronJobs()">
+                        <i class="fa fa-play"></i> 批量执行
+                    </button>
+                </div>
+                <h3 style="margin: 0;"><i class="fa fa-clock-o"></i> 定时任务</h3>
+            </div>
+            <p class="text-muted" style="margin-top: 10px;">配置定时任务，由 Cloudflare Cron Trigger 心跳触发执行。在 Dashboard → Workers → Triggers 添加一个 Cron Trigger（如 */5 * * * *）作为心跳。任务执行时间按<strong>北京时间</strong>设置，系统会自动转换为 UTC 匹配。</p>
+            
+            <div id="heartbeat-status" style="margin-top: 15px; padding: 10px 15px; border-radius: 6px; background: #f8f9fa; border: 1px solid #dee2e6; display: flex; align-items: center; gap: 10px;">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <span id="heartbeat-dot" style="width: 10px; height: 10px; border-radius: 50%; display: inline-block; background: #ccc;"></span>
+                    <strong>心跳状态：</strong><span id="heartbeat-text">检测中...</span>
+                </div>
+                <span id="heartbeat-time" style="color: #888; font-size: 13px; margin-left: auto;"></span>
+            </div>
+            
+            <div class="table-responsive" style="margin-top: 20px;">
+                <table class="table" id="cron-jobs-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 36px;"><input type="checkbox" id="cron-select-all" title="全选"></th>
+                            <th>名称</th>
+                            <th>Cron 表达式</th>
+                            <th>类型</th>
+                            <th>状态</th>
+                            <th>上次执行</th>
+                            <th>结果</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr><td colspan="8" class="text-center text-muted">加载中...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="panel panel-default" style="margin-top: 30px;">
+                <div class="panel-heading">
+                    <h4 class="panel-title"><i class="fa fa-plug"></i> 可用内部 API 端点（定时任务 URL 预设）</h4>
+                </div>
+                <div class="panel-body" style="font-size: 13px;">
+                    <table class="table table-bordered" style="margin-bottom: 0;">
+                        <thead><tr><th>端点</th><th>说明</th><th>URL</th></tr></thead>
+                        <tbody>
+                            <tr><td><code>重算月均价</code></td><td>遍历全部产品重算所有月均价</td><td><code>/api/price/admin/cron/_internal/recalc</code></td></tr>
+                            <tr><td><code>数据完整性检查</code></td><td>检查当日是否有产品缺报价（仅工作日）</td><td><code>/api/price/admin/cron/_internal/data-check</code></td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div style="display: flex; justify-content: space-between; align-items: center; margin: 30px 0 15px; padding-bottom: 10px; border-bottom: 2px solid rgba(59, 130, 246, 0.12);">
+                <h4 style="margin: 0; border: none; padding: 0;"><i class="fa fa-history"></i> 执行日志</h4>
+                <div style="display: flex; gap: 10px;">
+                    <button type="button" class="btn btn-warning btn-sm" onclick="clearStaleRunningTasks()">
+                        <i class="fa fa-refresh"></i> 清理残留运行中
+                    </button>
+                    <button type="button" class="btn btn-danger btn-sm" onclick="batchDeleteCronLogs()" id="btn-batch-delete-logs" disabled>
+                        <i class="fa fa-trash"></i> 批量删除选中日志
+                    </button>
+                </div>
+            </div>
+            <div class="table-responsive">
+                <table class="table" id="cron-logs-table">
+                    <thead>
+                        <tr><th style="width: 40px;"><input type="checkbox" id="check-all-logs" onchange="toggleAllLogs(this)" title="全选/取消全选"></th><th>任务</th><th>状态</th><th>信息</th><th>开始时间</th><th>完成时间</th></tr>
+                    </thead>
+                    <tbody>
+                        <tr><td colspan="6" class="text-center text-muted">加载中...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- 定时任务模态框 -->
+        <div class="modal" id="cronModal">
+            <div class="modal-content" style="max-width: 600px;">
+                <div class="modal-header">
+                    <h3 style="margin: 0;"><i class="fa fa-clock-o"></i> <span id="cron-modal-title">新增定时任务</span></h3>
+                    <button class="close-btn" onclick="closeModal('cronModal')">×</button>
+                </div>
+                <div class="modal-body">
+                    <form id="cron-form">
+                        <input type="hidden" name="id" id="cron-id">
+                        <div class="form-group">
+                            <label>任务名称</label>
+                            <input type="text" class="form-control" name="name" id="cron-name" placeholder="如：每日数据完整性检查" required>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label>执行频率</label>
+                                    <select class="form-control" name="cron_frequency" id="cron-frequency" onchange="onCronFrequencyChange()" required>
+                                        <option value="minute">每 N 分钟</option>
+                                        <option value="hourly">每小时第 N 分钟</option>
+                                        <option value="daily" selected>每天固定时间</option>
+                                        <option value="weekly">每周固定时间</option>
+                                        <option value="monthly">每月固定日期</option>
+                                        <option value="custom">自定义 Cron 表达式</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <!-- 动态参数区域：根据频率切换 -->
+                                <div id="cron-param-minute" style="display: none;" class="form-group">
+                                    <label>间隔分钟数</label>
+                                    <input type="number" class="form-control" name="cron_minute_interval" value="5" min="1" max="59">
+                                </div>
+                                <div id="cron-param-hourly" style="display: none;" class="form-group">
+                                    <label>分钟</label>
+                                    <input type="number" class="form-control" name="cron_hourly_minute" value="0" min="0" max="59">
+                                </div>
+                                <div id="cron-param-daily" class="form-group">
+                                    <label>时间 (北京时间)</label>
+                                    <input type="time" class="form-control" name="cron_daily_time" value="00:00">
+                                </div>
+                                <div id="cron-param-weekly" style="display: none;">
+                                    <label>星期</label>
+                                    <div style="display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 8px;">
+                                        <label style="font-weight: normal; margin: 0;"><input type="checkbox" name="cron_dow" value="1" checked> 一</label>
+                                        <label style="font-weight: normal; margin: 0;"><input type="checkbox" name="cron_dow" value="2" checked> 二</label>
+                                        <label style="font-weight: normal; margin: 0;"><input type="checkbox" name="cron_dow" value="3" checked> 三</label>
+                                        <label style="font-weight: normal; margin: 0;"><input type="checkbox" name="cron_dow" value="4" checked> 四</label>
+                                        <label style="font-weight: normal; margin: 0;"><input type="checkbox" name="cron_dow" value="5" checked> 五</label>
+                                        <label style="font-weight: normal; margin: 0;"><input type="checkbox" name="cron_dow" value="6"> 六</label>
+                                        <label style="font-weight: normal; margin: 0;"><input type="checkbox" name="cron_dow" value="0"> 日</label>
+                                    </div>
+                                    <label>时间 (北京时间)</label>
+                                    <input type="time" class="form-control" name="cron_weekly_time" value="00:00">
+                                </div>
+                                <div id="cron-param-monthly" style="display: none;" class="form-group">
+                                    <label>日期和时间 (北京时间)</label>
+                                    <div style="display: flex; gap: 8px;">
+                                        <input type="number" class="form-control" name="cron_monthly_day" value="1" min="1" max="28" style="width: 80px;">
+                                        <input type="time" class="form-control" name="cron_monthly_time" value="00:00">
+                                    </div>
+                                </div>
+                                <div id="cron-param-custom" style="display: none;" class="form-group">
+                                    <label>自定义 Cron 表达式（北京时间）</label>
+                                    <input type="text" class="form-control" name="cron_custom" placeholder="如：0 7 * * 1-5">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label>任务 URL</label>
+                                    <select class="form-control" name="task_url_preset" id="cron-task-url-preset" onchange="onTaskUrlPresetChange()" required>
+                                        <option value="">请选择</option>
+                                        <option value="/api/price/admin/cron/_internal/recalc">内置 - 重算月均价</option>
+                                        <option value="/api/price/admin/cron/_internal/data-check">内置 - 数据完整性检查</option>
+                                        <option value="__custom__">自定义 URL</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="col-md-6" id="cron-custom-url-container" style="display: none;">
+                                <div class="form-group">
+                                    <label>自定义 URL</label>
+                                    <input type="text" class="form-control" name="task_url_custom" id="cron-task-url-custom" placeholder="https://example.com/api/webhook">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>
+                                <input type="checkbox" name="enabled" id="cron-enabled" value="1" checked> 启用
+                            </label>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-danger" onclick="closeModal('cronModal')">取消</button>
+                    <button class="btn btn-primary" onclick="saveCronJob()">保存</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 用户管理模态框 -->
+    <div class="modal" id="userModal">
+        <div class="modal-content" style="max-width: 500px;">
+            <div class="modal-header">
+                <h3 style="margin: 0;"><i class="fa fa-user"></i> <span id="user-modal-title">新增用户</span></h3>
+                <button class="close-btn" onclick="closeModal('userModal')">×</button>
+            </div>
+            <div class="modal-body">
+                <form id="user-form">
+                    <input type="hidden" name="id" id="user-id">
+                    <div class="form-group">
+                        <label>用户名</label>
+                        <input type="text" class="form-control" name="username" id="user-username" placeholder="请输入用户名" required minlength="3" maxlength="32">
+                    </div>
+                    <div class="form-group">
+                        <label>密码</label>
+                        <input type="password" class="form-control" name="password" id="user-password" placeholder="新增时必填，编辑时留空表示不修改" minlength="8">
+                        <p class="text-muted" style="font-size: 12px; margin-top: 5px;">密码长度不能少于 8 位</p>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-danger" onclick="closeModal('userModal')">取消</button>
+                <button class="btn btn-primary" onclick="saveUser()">保存</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 产品类型模态框 -->
+    <div class="modal" id="productModal">
+        <div class="modal-content" style="max-width: 600px;">
+            <div class="modal-header">
+                <h3 style="margin: 0;"><i class="fa fa-cube"></i> <span id="product-modal-title">新增产品类型</span></h3>
+                <button class="close-btn" onclick="closeModal('productModal')">×</button>
+            </div>
+            <div class="modal-body">
+                <form id="product-form">
+                    <input type="hidden" name="id" id="product-id">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label>产品代码</label>
+                                <input type="text" class="form-control" name="code" id="product-code" placeholder="如：zinc0" required pattern="[a-zA-Z0-9_-]+">
+                                <p class="text-muted" style="font-size: 12px; margin-top: 5px;">只能包含字母、数字、下划线和横线</p>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label>产品名称</label>
+                                <input type="text" class="form-control" name="name" id="product-name" placeholder="如：0#锌锭" required>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-4">
+                            <div class="form-group">
+                                <label>单位</label>
+                                <input type="text" class="form-control" name="unit" id="product-unit" placeholder="如：元/吨" required>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="form-group">
+                                <label>规格</label>
+                                <input type="text" class="form-control" name="spec" id="product-spec" placeholder="如：0#锌锭">
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="form-group">
+                                <label>排序</label>
+                                <input type="number" class="form-control" name="sort_order" id="product-sort-order" placeholder="0" value="0">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>
+                            <input type="checkbox" name="is_active" id="product-is-active" value="1" checked> 启用
+                        </label>
+                        <p class="text-muted" style="font-size: 12px; margin-top: 5px;">停用后该产品不会在前台和补录下拉中显示</p>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-danger" onclick="closeModal('productModal')">取消</button>
+                <button class="btn btn-primary" onclick="saveProduct()">保存</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Webhook 配置模态框 -->
+    <div class="modal" id="webhookModal">
+        <div class="modal-content" style="max-width: 800px;">
+            <div class="modal-header">
+                <h3 style="margin: 0;"><i class="fa fa-plug"></i> <span id="webhook-modal-title">新增 Webhook 配置</span></h3>
+                <button class="close-btn" onclick="closeModal('webhookModal')">×</button>
+            </div>
+            <div class="modal-body">
+                <form id="webhook-form">
+                    <input type="hidden" name="id" id="webhook-id">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label>配置名称</label>
+                                <input type="text" class="form-control" name="name" placeholder="如：采集器-锌锭" required>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label>验证密钥</label>
+                                <div style="display: flex; gap: 8px;">
+                                    <input type="text" class="form-control" name="webhook_key" id="webhook-key-input" placeholder="自定义密钥" required>
+                                    <button type="button" class="btn btn-warning" onclick="generatePushKey('webhook-key-input')" style="white-space: nowrap;">生成密钥</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label>验证位置</label>
+                                <select class="form-control" name="auth_type">
+                                    <option value="header">HTTP Header</option>
+                                    <option value="query">URL 查询参数</option>
+                                    <option value="none">不验证</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label>验证参数名</label>
+                                <input type="text" class="form-control" name="auth_header_name" value="X-Webhook-Key">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label>产品代码字段路径</label>
+                                <input type="text" class="form-control" name="product_code_field" value="product_code" placeholder="如：product_code 或 data.code">
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label>数据日期字段路径</label>
+                                <input type="text" class="form-control" name="trade_date_field" value="trade_date" placeholder="如：trade_date 或 data.date">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label>采集日期(当天日期)字段路径</label>
+                                <input type="text" class="form-control" name="collect_date_field" value="collect_date" placeholder="如：collect_date，留空则用当天">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label>最低价字段路径</label>
+                                <input type="text" class="form-control" name="low_price_field" value="low_price" placeholder="如：low_price">
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label>最高价字段路径</label>
+                                <input type="text" class="form-control" name="high_price_field" value="high_price" placeholder="如：high_price">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label>日均价字段路径（可选）</label>
+                                <input type="text" class="form-control" name="avg_price_field" value="avg_price" placeholder="留空则自动计算">
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label>涨跌值字段路径</label>
+                                <input type="text" class="form-control" name="change_value_field" value="change_value" placeholder="如：change_value">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label>数据数组字段路径（多条数据时填写）</label>
+                                <input type="text" class="form-control" name="data_array_field" placeholder="如：data.items，单条则留空">
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label>固定映射产品代码（当推送不含产品时）</label>
+                                <select class="form-control" name="target_product_code" id="webhook-target-product-select">
+                                    <option value="">不固定</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>
+                            <input type="checkbox" name="enabled" value="1" checked> 启用该配置
+                        </label>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-danger" onclick="closeModal('webhookModal')">取消</button>
+                <button class="btn btn-primary" onclick="saveWebhookConfig()">保存配置</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 推送设置模态框 -->
+    <div class="modal" id="pushModal">
+        <div class="modal-content" style="max-width: 720px;">
+            <div class="modal-header">
+                <h3 style="margin: 0;"><i class="fa fa-paper-plane"></i> <span id="push-modal-title">新增推送配置</span></h3>
+                <button class="close-btn" onclick="closeModal('pushModal')">×</button>
+            </div>
+            <div class="modal-body">
+                <form id="push-form">
+                    <input type="hidden" name="id" id="push-id">
+                    <div class="row">
+                        <div class="col-md-8">
+                            <div class="form-group" style="margin-bottom: 10px;">
+                                <label>配置名称</label>
+                                <input type="text" class="form-control" name="name" id="push-name" placeholder="如：锌锭日报推送" required>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="form-group" style="margin-bottom: 10px;">
+                                <label style="visibility: hidden;">启用</label>
+                                <label style="margin: 0; line-height: 34px; font-weight: normal; cursor: pointer;">
+                                    <input type="checkbox" name="enabled" id="push-enabled" checked> 启用此配置
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="form-group" style="margin-bottom: 10px;">
+                        <label>微信 Webhook 推送地址</label>
+                        <input type="url" class="form-control" name="webhook_url" id="push-webhook-url" placeholder="https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=xxxx" required>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-7">
+                            <div class="form-group" style="margin-bottom: 10px;">
+                                <label>验证密钥 <span class="text-muted" style="font-weight: normal; font-size: 12px;">（访问推送地址时通过 ?key=密钥 验证）</span></label>
+                                <div style="display: flex; gap: 8px;">
+                                    <input type="text" class="form-control" name="push_key" id="push-key" placeholder="自动生成" required>
+                                    <button type="button" class="btn btn-warning" onclick="generatePushKey()" style="white-space: nowrap;">重新生成</button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-5">
+                            <div class="form-group" style="margin-bottom: 10px;">
+                                <label>消息类型</label>
+                                <select class="form-control" name="msg_type" id="push-msg-type" onchange="togglePushTemplateState()">
+                                    <option value="text" selected>纯文本</option>
+                                    <option value="markdown">Markdown</option>
+                                    <option value="card">模版卡片</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="form-group" style="margin-bottom: 10px;">
+                        <label>绑定产品 <span class="text-muted" style="font-weight: normal; font-size: 12px;">（可多选，Ctrl/Shift 选择，推送时各自渲染最新价格）</span></label>
+                        <select class="form-control" name="product_ids" id="push-product-select" multiple size="5">
+                        </select>
+                    </div>
+                    <p class="text-muted" id="push-card-hint" style="display: none; font-size: 12px; margin: -4px 0 10px;">模版卡片由系统自动生成结构化内容（产品标题、均价大字、涨跌明细），无需编辑模板</p>
+                    <!-- 消息模板（仅 markdown / 纯文本 显示） -->
+                    <div class="form-group" id="push-template-group" style="margin-bottom: 10px;">
+                        <label style="margin-bottom: 6px;"><i class="fa fa-magic"></i> 数据拼接（点击字段插入模板）</label>
+                        <div style="display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 6px;">
+                            <button type="button" class="btn btn-sm btn-default" onclick="insertPushField('{日期}')">+ 报价日期</button>
+                            <button type="button" class="btn btn-sm btn-default" onclick="insertPushField('{产品}')">+ 产品名称</button>
+                            <button type="button" class="btn btn-sm btn-default" onclick="insertPushField('{均价}')">+ 日均价</button>
+                            <button type="button" class="btn btn-sm btn-default" onclick="insertPushField('{单位}')">+ 单位</button>
+                            <button type="button" class="btn btn-sm btn-default" onclick="insertPushField('{涨跌}')">+ 涨/跌</button>
+                        </div>
+                        <textarea class="form-control" name="template" id="push-template" rows="4" placeholder="**{产品}** 最新报价&#10;日期：{日期}&#10;日均价：{均价} {单位}&#10;涨跌：{涨跌}"></textarea>
+                        <p class="text-muted" style="font-size: 12px; margin: 5px 0 0;">涨/跌 显示效果：↑ +15（涨）、↓ -280（跌）</p>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer" style="display: flex; justify-content: space-between; align-items: center;">
+                <button type="button" class="btn btn-info" onclick="previewPushMessage()">
+                    <i class="fa fa-eye"></i> 预览效果
+                </button>
+                <div>
+                    <button class="btn btn-danger" onclick="closeModal('pushModal')">取消</button>
+                    <button class="btn btn-primary" onclick="savePushConfig()">保存</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 推送预览模态框 -->
+    <div class="modal" id="pushPreviewModal">
+        <div class="modal-content" style="max-width: 560px;">
+            <div class="modal-header">
+                <h3 style="margin: 0;"><i class="fa fa-eye"></i> 推送效果预览</h3>
+                <button class="close-btn" onclick="closeModal('pushPreviewModal')">×</button>
+            </div>
+            <div class="modal-body">
+                <div id="push-preview" style="padding: 12px; background: #f0f7ff; border: 1px solid #bcd8f7; border-radius: 6px; white-space: pre-wrap; font-size: 13px; color: #1e3a5f; min-height: 60px;">加载中...</div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-primary" onclick="closeModal('pushPreviewModal')">关闭</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 编辑模态框 -->
+    <div class="modal" id="editModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 style="margin: 0;"><i class="fa fa-edit"></i> 编辑报价记录</h3>
+                <button class="close-btn" onclick="closeModal('editModal')">×</button>
+            </div>
+            <div class="modal-body">
+                <form id="edit-form">
+                    <input type="hidden" name="id">
+                    <div class="form-group">
+                        <label>产品类型</label>
+                        <select class="form-control" name="product_code" id="edit-product-select" required>
+                            <option value="">请选择产品</option>
+                        </select>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label>最低价</label>
+                                <input type="number" class="form-control" name="low_price" required>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label>最高价</label>
+                                <input type="number" class="form-control" name="high_price" required>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>日均价</label>
+                        <input type="number" step="0.01" class="form-control" name="avg_price" required>
+                    </div>
+                    <div class="form-group">
+                        <label>涨跌值</label>
+                        <input type="number" class="form-control" name="change" required>
+                    </div>
+                    <div class="form-group">
+                        <label>备注</label>
+                        <textarea class="form-control" name="remark" rows="3"></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-danger" onclick="closeModal('editModal')">取消</button>
+                <button class="btn btn-primary" onclick="saveEdit()">保存更改</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 删除确认弹窗 -->
+    <div class="modal" id="confirmModal">
+        <div class="modal-content" style="max-width: 450px;">
+            <div class="modal-header">
+                <h3 style="margin: 0;"><i class="fa fa-exclamation-triangle"></i> <span id="confirm-title">确认删除</span></h3>
+            </div>
+            <div class="modal-body">
+                <p id="confirm-message" style="margin: 0; font-size: 15px; line-height: 1.6;"></p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-default" onclick="closeConfirmModal()">取消</button>
+                <button class="btn btn-danger" id="confirm-ok-btn" onclick="executeConfirmCallback()">确定删除</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 执行结果弹窗 -->
+    <div class="modal" id="resultModal">
+        <div class="modal-content" style="max-width: 560px;">
+            <div class="modal-header">
+                <h3 style="margin: 0;"><i class="fa fa-info-circle"></i> <span id="result-modal-title">执行结果</span></h3>
+                <button class="close-btn" onclick="closeModal('resultModal')">×</button>
+            </div>
+            <div class="modal-body" style="max-height: 60vh; overflow-y: auto;">
+                <div id="result-list"></div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-primary" onclick="closeModal('resultModal')">关闭</button>
+            </div>
+        </div>
+    </div>
+    
+    <script src="/assets/js/jquery.min.js"></script>
+    <script src="/shared.js"></script>
+    <script>
+        // 侧边栏菜单切换：只改 hash，由 hashchange 统一处理
+        $('.sidebar-menu a').click(function(e) {
+            var target = $(this).attr('href');
+            if (target.indexOf('#') !== 0) return; // 外部链接不处理
+            e.preventDefault();
+            if (location.hash === target) {
+                // 相同 hash 不会触发 hashchange，手动刷新一次
+                showSection(target);
+            } else {
+                location.hash = target;
+            }
+        });
+
+        // hash 变化（含浏览器前进/后退）时切换到对应模块
+        $(window).on('hashchange', function() {
+            var h = location.hash;
+            if (h && $(h + '-section').length) {
+                showSection(h);
+            }
+        });
+
+        // 显示指定后台模块（target 为 hash，如 #cron-jobs）
+        function showSection(target) {
+            if (!$(target + '-section').length) {
+                target = '#dashboard';
+            }
+
+            $('.sidebar-menu a').removeClass('active');
+            $('.sidebar-menu a[href="' + target + '"]').addClass('active');
+
+            $('.admin-section').hide();
+            $(target + '-section').show();
+
+            if (target === '#webhook-config') {
+                loadWebhookConfigs();
+            }
+            if (target === '#push-settings') {
+                loadPushConfigs();
+            }
+            if (target === '#product-management') {
+                loadAdminProducts();
+            }
+            if (target === '#manual-input') {
+                populateManualProductSelect();
+                // 设置手工补录日期为当天（北京时间）
+                $('#manual-date').val(new Date(Date.now() + 8 * 3600 * 1000).toISOString().slice(0, 10));
+            }
+            if (target === '#dashboard') {
+                loadStats();
+                loadRecentPrices();
+            }
+            if (target === '#system-settings') {
+                loadSettings();
+                loadUsers();
+            }
+            if (target === '#cron-jobs') {
+                loadCronJobs();
+                loadCronLogs();
+            }
+
+            // 记录当前模块，刷新后据此恢复
+            try {
+                localStorage.setItem('admin_current_section', target);
+            } catch (e) {}
+        }
+        
+        // 计算日均价
+        function calculateAvg() {
+            var low = $('#manual-form input[name="low_price"]').val();
+            var high = $('#manual-form input[name="high_price"]').val();
+            if (low && high) {
+                var avg = (parseFloat(low) + parseFloat(high)) / 2;
+                notify('计算出的日均价为: ' + avg.toFixed(2));
+            } else {
+                notify('请先填写最低价和最高价');
+            }
+        }
+        
+        // 删除记录
+        function deleteRecord(id) {
+            confirmAndRequest('确定要删除这条记录吗？删除后无法恢复。', '/api/price/admin/records/' + id, { method: 'DELETE' }, {
+                successMessage: '记录已删除',
+                onSuccess: function() { loadRecentPrices(); loadStats(); }
+            });
+        }
+
+        // 全选/取消全选最近报价记录
+        function toggleSelectAllRecords() {
+            toggleSelectAll('#price-history-section tbody .record-checkbox', $('#select-all-records').prop('checked'), updateBatchDeleteButtonState);
+        }
+
+        // 更新批量删除按钮状态
+        function updateBatchDeleteButtonState() {
+            updateBatchDeleteButton('#batch-delete-btn', '#price-history-section tbody .record-checkbox');
+        }
+
+        // 批量删除报价记录
+        function batchDeleteRecords() {
+            var selectedIds = collectCheckedValues('#price-history-section tbody .record-checkbox', false);
+
+            if (selectedIds.length === 0) {
+                notify('请先选择要删除的记录');
+                return;
+            }
+
+            confirmAndRequest(`确定要删除选中的 ${selectedIds.length} 条记录吗？此操作不可恢复。`, '/api/price/admin/records/batch', {
+                method: 'DELETE',
+                body: JSON.stringify({ ids: selectedIds })
+            }, {
+                errorPrefix: '批量删除失败',
+                onSuccess: function(data) {
+                    notify(`成功删除 ${data.deleted || selectedIds.length} 条记录`);
+                    $('#select-all-records').prop('checked', false);
+                    loadRecentPrices();
+                    loadStats();
+                }
+            });
+        }
+
+        // 监听记录复选框变化
+        $(document).on('change', '#price-history-section .record-checkbox', function() {
+            updateBatchDeleteButtonState();
+            if (!$(this).prop('checked')) {
+                $('#select-all-records').prop('checked', false);
+            }
+        });
+
+        // 通用关闭模态框
+        function closeModal(id) {
+            $('#' + id).removeClass('active');
+        }
+
+        // 通用打开模态框
+        function openModal(id) {
+            $('#' + id).addClass('active');
+        }
+
+        // 当前确认弹窗的回调函数
+        var confirmCallback = null;
+
+        // 打开确认弹窗（options: { title, okText }）
+        function openConfirmModal(message, onConfirm, options) {
+            options = options || {};
+            $('#confirm-message').text(message);
+            $('#confirm-title').text(options.title || '确认删除');
+            $('#confirm-ok-btn').text(options.okText || '确定删除');
+            confirmCallback = onConfirm;
+            openModal('confirmModal');
+        }
+
+        // 确认后发送请求，并统一处理成功提示、失败提示与网络异常
+        // options: { title, okText, successMessage, onSuccess, errorPrefix }
+        function confirmAndRequest(message, url, init, options) {
+            options = options || {};
+            var errorPrefix = options.errorPrefix || '删除失败';
+            openConfirmModal(message, function() {
+                apiFetch(url, init)
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            if (options.successMessage) notify(options.successMessage);
+                            if (options.onSuccess) options.onSuccess(data);
+                        } else {
+                            notify(errorPrefix + '：' + (data.error || '未知错误'));
+                        }
+                    })
+                    .catch(error => {
+                        console.error(errorPrefix + ':', error);
+                        notify(errorPrefix + '，请检查网络连接');
+                    });
+            }, options);
+        }
+
+        // 提交 JSON 请求并统一处理成功提示、失败提示与网络异常
+        // options: { method, successMessage, closeModalId, onSuccess, errorPrefix }
+        function submitJson(url, payload, options) {
+            options = options || {};
+            var errorPrefix = options.errorPrefix || '保存失败';
+            apiFetch(url, {
+                method: options.method || 'POST',
+                body: JSON.stringify(payload)
+            })
+            .then(response => response.json().then(data => ({ ok: response.ok, data: data })))
+            .then(result => {
+                if (result.ok && result.data.success) {
+                    notify(options.successMessage || '保存成功');
+                    if (options.closeModalId) closeModal(options.closeModalId);
+                    if (options.onSuccess) options.onSuccess(result.data);
+                } else {
+                    notify(errorPrefix + '：' + (result.data.error || '未知错误'));
+                }
+            })
+            .catch(error => {
+                console.error(errorPrefix + ':', error);
+                notify(errorPrefix + '，请检查网络连接');
+            });
+        }
+
+        // 关闭确认弹窗
+        function closeConfirmModal() {
+            closeModal('confirmModal');
+            confirmCallback = null;
+        }
+
+        // 执行确认回调
+        function executeConfirmCallback() {
+            var callback = confirmCallback;
+            closeConfirmModal();
+            if (typeof callback === 'function') {
+                callback();
+            }
+        }
+
+        // 表格单元格单行截断样式（长文本配合 title 提示）
+        var TRUNC_CELL_STYLE = 'overflow: hidden; text-overflow: ellipsis; white-space: nowrap;';
+
+        // 渲染表格占位行（加载失败/空态统一格式，target 可为选择器或 jQuery 对象）
+        // message 统一在此转义，调用方直接传纯文本即可
+        function renderTablePlaceholder(target, colspan, message) {
+            $(target).html('<tr><td colspan="' + colspan + '" class="text-center text-muted">' + escapeHtml(message) + '</td></tr>');
+        }
+
+        // 统一列表加载：成功时交由 render(data) 渲染，业务失败/网络异常时渲染占位行
+        // options: { url, dataKey, render, target, colspan, errorLabel, failMessage, networkMessage }
+        // failMessage/networkMessage 支持字符串或 (arg) => string，缺省为业务错误/网络错误文案
+        function loadList(options) {
+            apiFetch(options.url)
+            .then(response => response.json())
+            .then(data => {
+                if (data[options.dataKey]) {
+                    options.render(data);
+                    return;
+                }
+                var failMessage = options.failMessage || (d => '加载失败：' + (d.error || '未知错误'));
+                renderTablePlaceholder(options.target, options.colspan,
+                    typeof failMessage === 'function' ? failMessage(data) : failMessage);
+            })
+            .catch(error => {
+                console.error(options.errorLabel || '加载失败:', error);
+                var networkMessage = options.networkMessage || '加载失败，请检查网络连接';
+                renderTablePlaceholder(options.target, options.colspan,
+                    typeof networkMessage === 'function' ? networkMessage(error) : networkMessage);
+            });
+        }
+
+        // 渲染启用状态徽章（onText/offText 默认「启用/禁用」）
+        function renderStatusBadge(enabled, onText, offText) {
+            return enabled
+                ? '<span class="status-badge status-success">' + (onText || '启用') + '</span>'
+                : '<span class="status-badge status-warning">' + (offText || '禁用') + '</span>';
+        }
+
+        // 收集复选框选中值（asInt 为 true 时转为整数）
+        function collectCheckedValues(selector, asInt) {
+            return $(selector + ':checked').map(function() {
+                return asInt ? parseInt(this.value) : $(this).val();
+            }).get();
+        }
+
+        // 读取复选框选中状态，返回可直接提交给 API 的布尔值（1/0）
+        function checkedBit(selector) {
+            return $(selector).is(':checked') ? 1 : 0;
+        }
+
+        // 全选/取消全选：将 itemSelector 命中的复选框同步为 checked，可选刷新按钮状态
+        function toggleSelectAll(itemSelector, checked, refresh) {
+            $(itemSelector).prop('checked', checked);
+            if (refresh) refresh();
+        }
+
+        // 批量删除按钮状态：按 itemSelector 选中数量控制 btnSelector 禁用态，可选按数量刷新文案
+        function updateBatchDeleteButton(btnSelector, itemSelector, labelFn) {
+            var count = $(itemSelector + ':checked').length;
+            var $btn = $(btnSelector).prop('disabled', count === 0);
+            if (labelFn) $btn.text(labelFn(count));
+        }
+
+        // HTML 转义与轻提示（toast）见 shared.js
+
+        // 显示执行结果弹窗（results: [{ name, success, message }]）
+        function showResultModal(title, results) {
+            $('#result-modal-title').text(title);
+            var html = '';
+            results.forEach(function(r) {
+                var icon = r.success
+                    ? '<i class="fa fa-check-circle" style="color: #27ae60;"></i>'
+                    : '<i class="fa fa-times-circle" style="color: #e74c3c;"></i>';
+                html += '<div style="padding: 10px 0; border-bottom: 1px solid #eee;">'
+                    + '<div style="display: flex; align-items: center; gap: 8px;">' + icon + '<strong>' + escapeHtml(r.name) + '</strong></div>'
+                    + '<div style="margin-top: 4px; font-size: 13px; color: #666; white-space: pre-wrap; word-break: break-all;">' + escapeHtml(r.message || '') + '</div>'
+                    + '</div>';
+            });
+            if (!html) html = '<div class="text-center text-muted">无结果</div>';
+            $('#result-list').html(html);
+            openModal('resultModal');
+        }
+
+        // 保存编辑
+        function saveEdit() {
+            var id = $('#edit-form input[name="id"]').val();
+            if (!id) {
+                notify('记录 ID 无效，请重新打开编辑窗口');
+                return;
+            }
+            // 涨跌值：留空或非数字时传 null，由后端按上一交易日自动计算
+            var changeRaw = $('#edit-form input[name="change"]').val();
+            var changeValue = (changeRaw === '' || changeRaw === null || changeRaw === undefined || isNaN(parseFloat(changeRaw)))
+                ? null
+                : parseFloat(changeRaw);
+
+            var formData = {
+                product_code: $('#edit-form select[name="product_code"]').val(),
+                low_price: parseFloat($('#edit-form input[name="low_price"]').val()),
+                high_price: parseFloat($('#edit-form input[name="high_price"]').val()),
+                avg_price: parseFloat($('#edit-form input[name="avg_price"]').val()),
+                change_value: changeValue,
+                remark: $('#edit-form textarea[name="remark"]').val()
+            };
+
+            submitJson('/api/price/admin/records/' + id, formData, {
+                method: 'PUT',
+                successMessage: '更改已保存！',
+                closeModalId: 'editModal',
+                onSuccess: function() { loadRecentPrices(); loadStats(); }
+            });
+        }
+        
+        // 页面加载时检查登录状态
+        $(document).ready(function() {
+            checkLogin();
+
+            // 登录表单提交（回车键等场景兜底）
+            $('#login-form').submit(function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                login();
+                return false;
+            });
+
+            // 输入框回车直接登录
+            $('#login-form input').keypress(function(e) {
+                if (e.which === 13) {
+                    e.preventDefault();
+                    login();
+                    return false;
+                }
+            });
+
+            // 用户管理按钮事件委托
+            $('#users-table tbody').on('click', '.edit-btn', function() {
+                var userId = $(this).data('user-id');
+                var username = $(this).data('username');
+                openUserModal(userId, username);
+            });
+
+            $('#users-table tbody').on('click', '.delete-btn', function() {
+                var userId = $(this).data('user-id');
+                var username = $(this).data('username');
+                deleteUser(userId, username);
+            });
+
+            // 产品类型按钮事件委托
+            $('#products-table tbody').on('click', '.edit-btn', function() {
+                var productId = $(this).data('product-id');
+                openProductModal(productId);
+            });
+
+            $('#products-table tbody').on('click', '.delete-btn', function() {
+                var productId = $(this).data('product-id');
+                var productName = $(this).data('product-name');
+                deleteProduct(productId, productName);
+            });
+
+            $('#products-table tbody').on('click', '.set-homepage-btn', function() {
+                var productCode = $(this).data('product-code');
+                var productName = $(this).data('product-name');
+                setHomepageProduct(productCode, productName);
+            });
+
+            // 定时任务按钮事件委托（使用 data-* 属性替代内联 onclick，防御 XSS）
+            $('#cron-jobs-table tbody').on('click', '.cron-run-btn', function() {
+                var id = $(this).data('job-id');
+                runCronJob(id);
+            });
+            $('#cron-jobs-table tbody').on('click', '.cron-edit-btn', function() {
+                var id = $(this).data('job-id');
+                openCronModal(id);
+            });
+            $('#cron-jobs-table tbody').on('click', '.cron-delete-btn', function() {
+                var id = $(this).data('job-id');
+                var name = $(this).data('job-name');
+                deleteCronJob(id, name);
+            });
+
+            // 定时任务全选/取消全选
+            $('#cron-select-all').on('change', function() {
+                toggleSelectAll('.cron-row-check', this.checked);
+            });
+        });
+
+        // 解析 JWT 格式 token（payloadB64.signature）
+        function parseToken(token) {
+            if (!token) return null;
+            var parts = token.split('.');
+            if (parts.length !== 2) return null;
+            try {
+                var payloadB64 = parts[0].replace(/-/g, '+').replace(/_/g, '/');
+                var padLen = (4 - (payloadB64.length % 4)) % 4;
+                payloadB64 += new Array(padLen + 1).join('=');
+                return JSON.parse(atob(payloadB64));
+            } catch (e) {
+                return null;
+            }
+        }
+
+        // 检查登录状态
+        function checkLogin() {
+            $('#setupOverlay').hide();
+            $('#loginOverlay').hide();
+            var token = getAdminToken();
+            if (token) {
+                var payload = parseToken(token);
+                if (payload && payload.exp && payload.exp > Math.floor(Date.now() / 1000)) {
+                    showAdminApp(payload.username || 'admin');
+                    return;
+                }
+                localStorage.removeItem('admin_token');
+            }
+            showLogin();
+        }
+
+        // 显示首次初始化界面
+        function showSetup() {
+            $('#loginOverlay').hide();
+            $('#setupOverlay').css('display', 'flex');
+            $('#adminSidebar').hide();
+            $('#adminApp').hide();
+        }
+
+        // 首次创建管理员
+        function initSetup() {
+            var username = $('#setup-form input[name="username"]').val().trim();
+            var password = $('#setup-form input[name="password"]').val();
+            var confirm = $('#setup-form input[name="confirm"]').val();
+
+            if (!username || !password) {
+                $('#setupError').text('请填写用户名和密码').show();
+                return;
+            }
+            if (password !== confirm) {
+                $('#setupError').text('两次密码不一致').show();
+                return;
+            }
+            if (password.length < 8) {
+                $('#setupError').text('密码长度不能少于 8 位').show();
+                return;
+            }
+            var $btn = $('#setupBtn');
+            if ($btn.prop('disabled')) return;
+            $btn.prop('disabled', true).html('<i class="fa fa-spinner fa-spin"></i> 创建中...');
+            $('#setupError').hide();
+
+            fetch('/api/price/admin/setup', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username: username, password: password })
+            })
+            .then(function(response) {
+                return response.json().then(function(data) {
+                    return { ok: response.ok, status: response.status, data: data };
+                });
+            })
+            .then(function(result) {
+                $btn.prop('disabled', false).html('<i class="fa fa-check"></i> 创建管理员');
+                if (result.ok && result.data.success) {
+                    notify('管理员「' + (result.data.user ? result.data.user.username : username) + '」创建成功！请登录。');
+                    $('#setupOverlay').hide();
+                    showLogin();
+                } else {
+                    $('#setupError').text(result.data.error || '创建失败').show();
+                }
+            })
+            .catch(function(error) {
+                $btn.prop('disabled', false).html('<i class="fa fa-check"></i> 创建管理员');
+                $('#setupError').text('网络错误：' + error.message).show();
+            });
+        }
+
+        // 检查管理员是否已存在（探测 setup 接口，发送不完整请求体避免误创建账号）
+        function checkAdminExists() {
+            return fetch('/api/price/admin/setup', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: '{}'
+            })
+            .then(function(r) { return r.json().then(function(d) { return { status: r.status, data: d }; }); })
+            .then(function(result) {
+                // 403: 管理员已存在；400: 缺少字段 → 管理员不存在
+                return result.status === 403;
+            })
+            .catch(function() { return false; });
+        }
+
+        // 显示登录界面
+        function showLogin() {
+            $('#setupOverlay').hide();
+            $('#loginOverlay').css('display', 'flex');
+            $('#adminSidebar').hide();
+            $('#adminApp').hide();
+
+            // 检测管理员是否已存在，存在则隐藏"首次部署"链接
+            checkAdminExists().then(function(exists) {
+                $('#setup-link-wrap').toggle(!exists);
+            });
+        }
+
+        // 显示后台主界面
+        function showAdminApp(username) {
+            $('#setupOverlay').hide();
+            $('#loginOverlay').hide();
+            $('#adminSidebar').show();
+            $('#adminApp').show();
+            $('#sidebar-username').text(username);
+            $('#header-username').text(username);
+
+            // 预加载产品数据（供手工补录/产品管理/Webhook 下拉使用）
+            loadAdminProducts();
+
+            // 恢复上次所在页面：优先 localStorage，其次 URL hash，最后默认数据看板
+            var saved = null;
+            try { saved = localStorage.getItem('admin_current_section'); } catch (e) {}
+            var initialHash = (saved && $(saved + '-section').length) ? saved : location.hash;
+            if (initialHash && $(initialHash + '-section').length) {
+                showSection(initialHash);
+            } else {
+                showSection('#dashboard');
+            }
+        }
+
+        // 登录
+        function login() {
+            var username = $('#login-form input[name="username"]').val().trim();
+            var password = $('#login-form input[name="password"]').val();
+            var $btn = $('#loginBtn');
+
+            if (!username || !password) {
+                $('#loginError').text('请输入用户名和密码').show();
+                return;
+            }
+
+            // 防止重复提交
+            if ($btn.prop('disabled')) return;
+            $btn.prop('disabled', true).html('<i class="fa fa-spinner fa-spin"></i> 登录中...');
+            $('#loginError').hide();
+
+            fetch('/api/price/admin/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username: username, password: password })
+            })
+            .then(function(response) {
+                return response.json().then(function(data) {
+                    return { ok: response.ok, status: response.status, data: data };
+                });
+            })
+            .then(function(result) {
+                $btn.prop('disabled', false).html('<i class="fa fa-sign-in"></i> 登录');
+                if (result.ok && result.data.success && result.data.token) {
+                    localStorage.setItem('admin_token', result.data.token);
+                    $('#loginError').hide();
+                    showAdminApp(result.data.user ? result.data.user.username : username);
+                } else {
+                    $('#loginError').text(result.data.error || ('登录失败 (HTTP ' + result.status + ')')).show();
+                }
+            })
+            .catch(function(error) {
+                $btn.prop('disabled', false).html('<i class="fa fa-sign-in"></i> 登录');
+                console.error('登录失败:', error);
+                $('#loginError').text('登录失败，请检查网络连接：' + error.message).show();
+            });
+        }
+
+        // 退出登录
+        function logout() {
+            openConfirmModal('确定要退出登录吗？', function() {
+                localStorage.removeItem('admin_token');
+                showLogin();
+                $('#login-form')[0].reset();
+            }, { title: '确认退出', okText: '退出登录' });
+        }
+
+        // 加载后台统计数据
+        function loadStats() {
+            apiFetch('/api/price/admin/stats')
+            .then(response => response.json())
+            .then(data => {
+                if (data.total_records !== undefined) {
+                    $('#stat-total').text(formatNumber(data.total_records));
+                    $('#stat-monthly').text(formatNumber(data.monthly_updates));
+                    $('#stat-success').text(data.success_rate != null ? data.success_rate + '%' : '-');
+
+                    if (data.last_update) {
+                        var parts = data.last_update.split(' ');
+                        $('#stat-last-date').text(parts[0] || '-');
+                        $('#stat-last-time').text(parts[1] ? parts[1].substring(0, 5) : '-');
+                    } else {
+                        $('#stat-last-date').text('-');
+                        $('#stat-last-time').text('-');
+                    }
+                }
+            })
+            .catch(error => {
+                console.error('加载统计数据失败:', error);
+            });
+        }
+
+        // 最近报价记录分页状态
+        var currentPage = 1;
+        var pageSize = 20;
+        var totalPages = 1;
+        var totalRecords = 0;
+
+        // 加载最近报价数据
+        function loadRecentPrices(page, size) {
+            currentPage = page || currentPage;
+            pageSize = size || pageSize;
+
+            loadList({
+                url: '/api/price/admin/recent?page=' + currentPage + '&pageSize=' + pageSize,
+                dataKey: 'records',
+                render: data => updateRecentPricesTable(data.records, data.pagination),
+                target: '#price-history-section tbody',
+                colspan: 10,
+                errorLabel: '加载最近记录失败'
+            });
+        }
+        
+        // 更新最近报价表格
+        function updateRecentPricesTable(data, pagination) {
+            var tbody = $('#price-history-section tbody');
+            tbody.empty();
+            $('#select-all-records').prop('checked', false);
+            updateBatchDeleteButtonState();
+            
+            if (!data || data.length === 0) {
+                renderTablePlaceholder(tbody, 10, '暂无报价数据');
+                renderPagination(pagination || { page: 1, pageSize: 20, total: 0, totalPages: 1 });
+                // 当前页删除后为空且不是第一页时，自动回到上一页
+                if (currentPage > 1 && totalPages > 0 && currentPage > totalPages) {
+                    loadRecentPrices(totalPages);
+                }
+                return;
+            }
+            
+            data.forEach(item => {
+                var cv = parseFloat(item.change_value);
+                var changeNum = isNaN(cv) ? 0 : cv;
+                var changeClass = changeNum > 0 ? 'change up' : 
+                                 changeNum < 0 ? 'change down' : 'change neutral';
+                var changeSign = changeNum > 0 ? '+' + formatNumber(changeNum) : 
+                                changeNum < 0 ? formatNumber(changeNum) : '0';
+                var changeArrow = changeNum > 0 ? '↑' : 
+                                 changeNum < 0 ? '↓' : '→';
+                
+                var sourceBadge;
+                var sourceText;
+                if (item.source === 'api') {
+                    sourceBadge = '<span class="status-badge status-success">API自动</span>';
+                    sourceText = 'API自动';
+                } else if (item.source === 'webhook') {
+                    sourceBadge = '<span class="status-badge status-info">Webhook</span>';
+                    sourceText = 'Webhook';
+                } else if (item.source === 'manual') {
+                    sourceBadge = '<span class="status-badge status-warning">手工补录</span>';
+                    sourceText = '手工补录';
+                } else {
+                    sourceBadge = '<span class="status-badge status-default">' + escapeHtml(item.source || '未知') + '</span>';
+                    sourceText = item.source || '未知';
+                }
+                
+                var collectDate = item.collect_date || '-';
+                
+                var row = `
+                    <tr>
+                        <td style="text-align: center;"><input type="checkbox" class="record-checkbox" value="${item.id}"></td>
+                        <td title="${escapeHtml(item.trade_date)}">${escapeHtml(item.trade_date)}</td>
+                        <td title="${escapeHtml(collectDate)}">${escapeHtml(collectDate)}</td>
+                        <td title="${escapeHtml(item.product_name)}"><strong>${escapeHtml(item.product_name)}</strong></td>
+                        <td title="${formatNumber(item.low_price)} - ${formatNumber(item.high_price)}">${formatNumber(item.low_price)} - ${formatNumber(item.high_price)}</td>
+                        <td title="${formatNumber(item.avg_price)}">${formatNumber(item.avg_price)}</td>
+                        <td title="${changeSign} ${changeArrow}"><span class="${changeClass}">${changeSign} ${changeArrow}</span></td>
+                        <td title="${item.monthly_avg != null ? formatNumber(item.monthly_avg) : '-'}">${item.monthly_avg != null ? formatNumber(item.monthly_avg) : '-'}</td>
+                        <td title="${escapeHtml(sourceText)}">${sourceBadge}</td>
+                        <td class="cell-wrap">
+                            <div class="action-buttons">
+                                <button class="action-btn edit-btn" onclick="editRecord(${item.id})">编辑</button>
+                                <button class="action-btn delete-btn" onclick="deleteRecord(${item.id})">删除</button>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+                tbody.append(row);
+            });
+            
+            renderPagination(pagination || { page: 1, pageSize: 20, total: 0, totalPages: 1 });
+        }
+
+        // 渲染分页控件
+        function renderPagination(pagination) {
+            currentPage = pagination.page;
+            pageSize = pagination.pageSize;
+            totalRecords = pagination.total;
+            totalPages = pagination.totalPages;
+            
+            $('#pagination-total').text(formatNumber(totalRecords));
+            $('#pagination-page').text(currentPage);
+            $('#pagination-total-pages').text(totalPages);
+            
+            $('#page-first').prop('disabled', currentPage <= 1);
+            $('#page-prev').prop('disabled', currentPage <= 1);
+            $('#page-next').prop('disabled', currentPage >= totalPages);
+            $('#page-last').prop('disabled', currentPage >= totalPages);
+            
+            var pagesHtml = '';
+            var maxVisible = 5;
+            var startPage = Math.max(1, currentPage - Math.floor(maxVisible / 2));
+            var endPage = Math.min(totalPages, startPage + maxVisible - 1);
+            if (endPage - startPage + 1 < maxVisible) {
+                startPage = Math.max(1, endPage - maxVisible + 1);
+            }
+            
+            for (var i = startPage; i <= endPage; i++) {
+                var activeClass = i === currentPage ? 'btn-primary' : 'btn-default';
+                pagesHtml += '<button type="button" class="btn btn-sm ' + activeClass + '" onclick="changePage(' + i + ')">' + i + '</button>';
+            }
+            $('#pagination-pages').html(pagesHtml);
+            
+            $('#page-size').val(pageSize);
+        }
+
+        // 切换页码
+        function changePage(page) {
+            if (page < 1 || page > totalPages || page === currentPage) {
+                return;
+            }
+            loadRecentPrices(page);
+        }
+
+        // 切换每页条数
+        function changePageSize() {
+            var newSize = parseInt($('#page-size').val());
+            if (isNaN(newSize) || newSize < 1) {
+                return;
+            }
+            loadRecentPrices(1, newSize);
+        }
+        
+        // 格式化数字（添加千位分隔符）
+        function formatNumber(num) {
+            if (num === null || num === undefined) return '0';
+            return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+        }
+
+        // 导出当前页数据为 CSV，格式：日期,产品,价格区间,日均价,涨/跌,月均价,来源
+        function exportToCSV() {
+            var rows = [];
+            rows.push('数据日期,录入时间,产品,价格区间,日均价,涨/跌,月均价,来源');
+
+            $('#recent-records-table tbody tr').each(function() {
+                var tds = this.querySelectorAll('td');
+                if (tds.length < 10) return; // 跳过提示/加载行（colspan 合并行）
+
+                // 跳过全选框(0)、操作(9)，取数据列 1-8（含来源）
+                var cols = [];
+                for (var i = 1; i <= 8; i++) {
+                    var text = tds[i].textContent.trim();
+                    if (text === '-') text = '';
+                    // CSV 标准转义：引号包裹，内部引号双写
+                    cols.push('"' + text.replace(/"/g, '""') + '"');
+                }
+                rows.push(cols.join(','));
+            });
+
+            var bom = '\uFEFF';
+            var csv = bom + rows.join('\n');
+            var blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            var url = URL.createObjectURL(blob);
+            var link = document.createElement('a');
+            link.href = url;
+            link.download = '报价记录_' + new Date().toISOString().slice(0, 10) + '.csv';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+        }
+        
+        // Webhook 配置管理
+        function getAdminToken() {
+            return localStorage.getItem('admin_token') || '';
+        }
+        
+        function getApiHeaders() {
+            var headers = { 'Content-Type': 'application/json' };
+            var token = getAdminToken();
+            if (token) headers['Authorization'] = 'Bearer ' + token;
+            return headers;
+        }
+
+        // API 请求封装：自动注入 token、10 秒超时、401 自动跳转登录
+        function apiFetch(url, options) {
+            options = options || {};
+            options.headers = options.headers || getApiHeaders();
+            // 超时控制
+            var controller = new AbortController();
+            var timeout = setTimeout(function() { controller.abort(); }, 10000);
+            options.signal = controller.signal;
+            return fetch(url, options)
+                .then(function(response) {
+                    if (response.status === 401) {
+                        localStorage.removeItem('admin_token');
+                        showLogin();
+                        throw new Error('登录已过期，请重新登录');
+                    }
+                    return response;
+                })
+                .catch(function(error) {
+                    if (error.name === 'AbortError') {
+                        throw new Error('请求超时，请检查网络连接');
+                    }
+                    throw error;
+                })
+                .finally(function() { clearTimeout(timeout); });
+        }
+        
+        function loadWebhookConfigs() {
+            // 绑定产品下拉由 loadAdminProducts 统一填充（应用启动时已预加载），此处无需重复调用
+
+            loadList({
+                url: '/api/price/webhooks',
+                dataKey: 'configs',
+                render: data => renderWebhookTable(data.configs),
+                target: '#webhook-table tbody',
+                colspan: 8,
+                errorLabel: '加载 Webhook 配置失败'
+            });
+        }
+        
+        function renderWebhookTable(configs) {
+            var tbody = $('#webhook-table tbody');
+            tbody.empty();
+            
+            if (!configs || configs.length === 0) {
+                renderTablePlaceholder(tbody, 8, '暂无 Webhook 配置');
+                return;
+            }
+            
+            var cellStyle = TRUNC_CELL_STYLE;
+            configs.forEach(config => {
+                var webhookUrl = window.location.origin + '/api/price/webhook/' + config.id;
+                var authDesc = config.auth_type === 'header' ? 'Header: ' + config.auth_header_name :
+                               config.auth_type === 'query' ? 'Query: ' + config.auth_header_name : '不验证';
+                var mapping = `产品:${config.product_code_field} 数据日期:${config.trade_date_field} 采集日期:${config.collect_date_field || 'collect_date'} 最低价:${config.low_price_field} 最高价:${config.high_price_field}`;
+                var statusBadge = renderStatusBadge(config.enabled);
+                var productName = config.target_product_code || '按推送数据';
+                
+                var row = `
+                    <tr>
+                        <td>${escapeHtml(String(config.id))}</td>
+                        <td title="${escapeHtml(config.name)}" style="${cellStyle} max-width: 120px;">${escapeHtml(config.name)}</td>
+                        <td title="${escapeHtml(authDesc)}" style="${cellStyle} max-width: 140px;">${escapeHtml(authDesc)}</td>
+                        <td title="${escapeHtml(mapping)}" style="${cellStyle} max-width: 280px;">${escapeHtml(mapping)}</td>
+                        <td title="${escapeHtml(productName)}" style="${cellStyle} max-width: 100px;">${escapeHtml(productName)}</td>
+                        <td>${statusBadge}</td>
+                        <td title="${webhookUrl}" style="${cellStyle} max-width: 220px;"><code style="font-size: 11px;">${webhookUrl}</code></td>
+                        <td class="cell-wrap">
+                            <div class="action-buttons">
+                                <button class="action-btn edit-btn" onclick="openWebhookModal(${config.id})">编辑</button>
+                                <button class="action-btn delete-btn" onclick="deleteWebhookConfig(${config.id})">删除</button>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+                tbody.append(row);
+            });
+        }
+        
+        function openWebhookModal(id) {
+            $('#webhook-form')[0].reset();
+            $('#webhook-id').val('');
+            $('#webhook-modal-title').text('新增 Webhook 配置');
+            
+            if (id) {
+                $('#webhook-modal-title').text('编辑 Webhook 配置');
+                apiFetch('/api/price/webhooks/' + id)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.config) {
+                        var config = data.config;
+                        $('#webhook-id').val(config.id);
+                        $('#webhook-form input[name="name"]').val(config.name);
+                        $('#webhook-form input[name="webhook_key"]').val(config.webhook_key);
+                        $('#webhook-form select[name="auth_type"]').val(config.auth_type);
+                        $('#webhook-form input[name="auth_header_name"]').val(config.auth_header_name);
+                        $('#webhook-form input[name="product_code_field"]').val(config.product_code_field);
+                        $('#webhook-form input[name="trade_date_field"]').val(config.trade_date_field);
+                        $('#webhook-form input[name="collect_date_field"]').val(config.collect_date_field || 'collect_date');
+                        $('#webhook-form input[name="low_price_field"]').val(config.low_price_field);
+                        $('#webhook-form input[name="high_price_field"]').val(config.high_price_field);
+                        $('#webhook-form input[name="avg_price_field"]').val(config.avg_price_field);
+                        $('#webhook-form input[name="change_value_field"]').val(config.change_value_field);
+                        $('#webhook-form input[name="data_array_field"]').val(config.data_array_field || '');
+                        $('#webhook-form select[name="target_product_code"]').val(config.target_product_code || '');
+                        $('#webhook-form input[name="enabled"]').prop('checked', config.enabled == 1);
+                    } else {
+                        notify('获取配置失败');
+                    }
+                })
+                .catch(error => {
+                    console.error('获取配置失败:', error);
+                    notify('获取配置失败');
+                });
+            }
+            
+            openModal('webhookModal');
+        }
+
+        function saveWebhookConfig() {
+            var id = $('#webhook-id').val();
+            var formData = {
+                name: $('#webhook-form input[name="name"]').val(),
+                webhook_key: $('#webhook-form input[name="webhook_key"]').val(),
+                auth_type: $('#webhook-form select[name="auth_type"]').val(),
+                auth_header_name: $('#webhook-form input[name="auth_header_name"]').val(),
+                product_code_field: $('#webhook-form input[name="product_code_field"]').val() || 'product_code',
+                trade_date_field: $('#webhook-form input[name="trade_date_field"]').val() || 'trade_date',
+                collect_date_field: $('#webhook-form input[name="collect_date_field"]').val() || 'collect_date',
+                low_price_field: $('#webhook-form input[name="low_price_field"]').val() || 'low_price',
+                high_price_field: $('#webhook-form input[name="high_price_field"]').val() || 'high_price',
+                avg_price_field: $('#webhook-form input[name="avg_price_field"]').val() || 'avg_price',
+                change_value_field: $('#webhook-form input[name="change_value_field"]').val() || 'change_value',
+                data_array_field: $('#webhook-form input[name="data_array_field"]').val() || null,
+                target_product_code: $('#webhook-form select[name="target_product_code"]').val() || null,
+                enabled: checkedBit('#webhook-form input[name="enabled"]')
+            };
+            
+            submitJson(id ? '/api/price/webhooks/' + id : '/api/price/webhooks', formData, {
+                method: id ? 'PUT' : 'POST',
+                successMessage: '配置保存成功',
+                closeModalId: 'webhookModal',
+                onSuccess: function() { loadWebhookConfigs(); }
+            });
+        }
+        
+        function deleteWebhookConfig(id) {
+            confirmAndRequest('确定要删除该 Webhook 配置吗？', '/api/price/webhooks/' + id, { method: 'DELETE' }, {
+                successMessage: '配置已删除',
+                onSuccess: function() { loadWebhookConfigs(); }
+            });
+        }
+
+        // ==================== 推送设置管理 ====================
+
+        var PUSH_DEFAULT_TEMPLATE = '**{产品}** 最新报价\n日期：{日期}\n日均价：{均价} {单位}\n涨跌：{涨跌}';
+
+        function loadPushConfigs() {
+            // 产品缓存为空时先加载产品，保证绑定产品下拉框有数据
+            var ensureProducts = adminProductsCache.length === 0
+                ? apiFetch('/api/price/admin/products').then(r => r.json()).then(data => {
+                      if (data.products) adminProductsCache = data.products;
+                  }).catch(() => {})
+                : Promise.resolve();
+            ensureProducts.then(() => populatePushProductSelect());
+
+            loadList({
+                url: '/api/price/admin/push',
+                dataKey: 'configs',
+                render: data => renderPushTable(data.configs),
+                target: '#push-table tbody',
+                colspan: 8,
+                errorLabel: '加载推送配置失败'
+            });
+        }
+
+        // 解析推送配置绑定的产品 ID 列表（product_ids JSON 优先，兼容旧单产品字段）
+        function parsePushProductIds(config) {
+            var ids = [];
+            try { ids = JSON.parse(config.product_ids || '[]'); } catch (e) { ids = []; }
+            if (ids.length === 0 && config.product_id) ids = [config.product_id];
+            return ids;
+        }
+
+        // 解析配置的产品名称列表
+        function resolvePushProductNames(config) {
+            var ids = parsePushProductIds(config);
+            if (ids.length === 0) return '-';
+            if (adminProductsCache.length > 0) {
+                return ids.map(id => {
+                    var p = adminProductsCache.find(x => String(x.id) === String(id));
+                    return p ? p.name : ('#' + id);
+                }).join('、');
+            }
+            return config.product_name || ('#' + ids[0]);
+        }
+
+        function renderPushTable(configs) {
+            var tbody = $('#push-table tbody');
+            tbody.empty();
+
+            if (!configs || configs.length === 0) {
+                renderTablePlaceholder(tbody, 8, '暂无推送配置');
+                return;
+            }
+
+            var cellStyle = TRUNC_CELL_STYLE;
+            configs.forEach(config => {
+                var msgTypeText = config.msg_type === 'text' ? '纯文本' : (config.msg_type === 'card' ? '模版卡片' : 'Markdown');
+                var pushUrl = window.location.origin + '/api/price/push/' + config.id + '?key=' + encodeURIComponent(config.push_key);
+                var statusBadge = renderStatusBadge(config.enabled);
+                var lastPush = '-';
+                if (config.last_push_at) {
+                    lastPush = toBeijingTime(config.last_push_at) + (config.last_push_status === 'success' ? '（成功）' : '（失败）');
+                }
+                var productNames = resolvePushProductNames(config);
+
+                var row = `
+                    <tr>
+                        <td>${escapeHtml(String(config.id))}</td>
+                        <td title="${escapeHtml(config.name)}" style="${cellStyle} max-width: 120px;">${escapeHtml(config.name)}</td>
+                        <td title="${escapeHtml(productNames)}" style="${cellStyle} max-width: 150px;">${escapeHtml(productNames)}</td>
+                        <td>${msgTypeText}</td>
+                        <td>${statusBadge}</td>
+                        <td title="${escapeHtml(pushUrl)}" style="${cellStyle} max-width: 260px;"><code style="font-size: 11px;">${escapeHtml(pushUrl)}</code></td>
+                        <td style="font-size: 12px;">${escapeHtml(lastPush)}</td>
+                        <td class="cell-wrap">
+                            <div class="action-buttons">
+                                <button class="action-btn edit-btn" onclick="openPushModal(${config.id})">编辑</button>
+                                <button class="action-btn" onclick="testPushConfig(${config.id})" style="color: #27ae60;">测试</button>
+                                <button class="action-btn delete-btn" onclick="deletePushConfig(${config.id})">删除</button>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+                tbody.append(row);
+            });
+        }
+
+        // 生成 24 位随机密钥并填入目标输入框（默认推送配置的密钥框，供两个模态框复用）
+        function generatePushKey(targetId) {
+            var chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
+            var arr = new Uint8Array(24);
+            crypto.getRandomValues(arr);
+            var key = '';
+            for (var i = 0; i < arr.length; i++) key += chars[arr[i] % chars.length];
+            $('#' + (targetId || 'push-key')).val(key);
+        }
+
+        // 模版卡片类型由系统自动生成内容，隐藏模板编辑区
+        function togglePushTemplateState() {
+            var isCard = $('#push-msg-type').val() === 'card';
+            $('#push-template-group').toggle(!isCard);
+            $('#push-card-hint').toggle(isCard);
+        }
+
+        function populatePushProductSelect() {
+            var select = $('#push-product-select');
+            select.empty();
+
+            var activeProducts = adminProductsCache.filter(p => p.is_active);
+            activeProducts.forEach(product => {
+                select.append(`<option value="${product.id}">${escapeHtml(product.name)}</option>`);
+            });
+        }
+
+        function openPushModal(id) {
+            $('#push-form')[0].reset();
+            $('#push-id').val('');
+            $('#push-modal-title').text('新增推送配置');
+            populatePushProductSelect();
+            // 新增时默认纯文本
+            $('#push-msg-type').val('text');
+            togglePushTemplateState();
+
+            if (id) {
+                $('#push-modal-title').text('编辑推送配置');
+                apiFetch('/api/price/admin/push/' + id)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.config) {
+                        var c = data.config;
+                        $('#push-id').val(c.id);
+                        $('#push-name').val(c.name);
+                        // 恢复多选产品（兼容旧单产品字段）
+                        var productIds = parsePushProductIds(c);
+                        $('#push-product-select option').each(function() {
+                            $(this).prop('selected', productIds.includes(parseInt($(this).val())));
+                        });
+                        $('#push-webhook-url').val(c.webhook_url);
+                        $('#push-key').val(c.push_key);
+                        $('#push-msg-type').val(c.msg_type || 'text');
+                        $('#push-template').val(c.template || PUSH_DEFAULT_TEMPLATE);
+                        $('#push-enabled').prop('checked', c.enabled == 1);
+                        togglePushTemplateState();
+                    } else {
+                        notify('获取推送配置失败');
+                    }
+                })
+                .catch(error => {
+                    console.error('获取推送配置失败:', error);
+                    notify('获取推送配置失败');
+                });
+            } else {
+                generatePushKey();
+                $('#push-template').val(PUSH_DEFAULT_TEMPLATE);
+                togglePushTemplateState();
+            }
+
+            openModal('pushModal');
+        }
+
+        function savePushConfig() {
+            var id = $('#push-id').val();
+            var productIds = ($('#push-product-select').val() || []).map(v => parseInt(v)).filter(v => v);
+            var formData = {
+                name: $('#push-name').val(),
+                webhook_url: $('#push-webhook-url').val(),
+                push_key: $('#push-key').val(),
+                product_ids: productIds,
+                msg_type: $('#push-msg-type').val(),
+                template: $('#push-template').val(),
+                enabled: checkedBit('#push-enabled')
+            };
+
+            if (!formData.name) { notify('请填写配置名称'); return; }
+            if (!formData.webhook_url) { notify('请填写微信 Webhook 推送地址'); return; }
+            if (!formData.push_key) { notify('请填写验证密钥'); return; }
+            if (productIds.length === 0) { notify('请至少选择一个绑定产品'); return; }
+
+            submitJson(id ? '/api/price/admin/push/' + id : '/api/price/admin/push', formData, {
+                method: id ? 'PUT' : 'POST',
+                successMessage: id ? '推送配置已更新' : '推送配置已创建',
+                closeModalId: 'pushModal',
+                onSuccess: function() { loadPushConfigs(); }
+            });
+        }
+
+        function deletePushConfig(id) {
+            confirmAndRequest('确定要删除该推送配置吗？删除后推送地址将立即失效。', '/api/price/admin/push/' + id, { method: 'DELETE' }, {
+                successMessage: '推送配置已删除',
+                onSuccess: function() { loadPushConfigs(); }
+            });
+        }
+
+        function testPushConfig(id) {
+            apiFetch('/api/price/admin/push/' + id + '/test', { method: 'POST' })
+            .then(response => response.json())
+            .then(data => {
+                showResultModal('测试推送', [{
+                    name: '推送测试',
+                    success: !!data.success,
+                    message: data.success ? (data.message || '推送成功') : (data.message || data.error || '推送失败')
+                }]);
+                loadPushConfigs();
+            })
+            .catch(error => {
+                console.error('测试推送失败:', error);
+                showResultModal('测试推送', [{ name: '推送测试', success: false, message: '测试请求失败，请检查网络连接' }]);
+            });
+        }
+
+        // 在光标处插入字段占位符
+        function insertPushField(field) {
+            var textarea = $('#push-template')[0];
+            var start = textarea.selectionStart, end = textarea.selectionEnd;
+            var text = textarea.value;
+            textarea.value = text.slice(0, start) + field + text.slice(end);
+            textarea.selectionStart = textarea.selectionEnd = start + field.length;
+            textarea.focus();
+        }
+
+        // 客户端模板渲染（预览用）
+        function renderPushTemplateClient(template, rec) {
+            var change = rec.change_value === null || rec.change_value === undefined ? 0 : Number(rec.change_value);
+            var changeStr = change > 0 ? '↑ +' + change : (change < 0 ? '↓ ' + change : '- 0');
+            return String(template)
+                .replace(/\{日期\}/g, rec.trade_date || '')
+                .replace(/\{产品\}/g, rec.product_name || '')
+                .replace(/\{均价\}/g, rec.avg_price === null || rec.avg_price === undefined ? '' : String(rec.avg_price))
+                .replace(/\{单位\}/g, rec.unit || '')
+                .replace(/\{涨跌\}/g, changeStr);
+        }
+
+        // 客户端模版卡片预览渲染（模拟企业微信 text_notice 卡片结构）
+        function renderPushCardClient(records) {
+            var fmtChange = function(v) {
+                var c = v === null || v === undefined ? 0 : Number(v);
+                return c > 0 ? '↑ +' + c : (c < 0 ? '↓ ' + c : '- 0');
+            };
+            if (records.length === 1) {
+                var rec = records[0];
+                return '【模版卡片预览】\n'
+                    + '来源：报价播报\n'
+                    + '「' + (rec.product_name || '-') + '」\n'
+                    + '报价日期 ' + (rec.trade_date || '-') + '\n'
+                    + '★ ' + (rec.avg_price === null || rec.avg_price === undefined ? '-' : rec.avg_price) + '\n'
+                    + '日均价（' + (rec.unit || '-') + '）\n'
+                    + '涨跌：' + fmtChange(rec.change_value) + '\n'
+                    + '单位：' + (rec.unit || '-');
+            }
+            var latestDate = records[0].trade_date || '';
+            records.forEach(function(r) {
+                if (r.trade_date && r.trade_date > latestDate) latestDate = r.trade_date;
+            });
+            var lines = records.map(function(r) {
+                return '· ' + (r.product_name || '-') + '：'
+                    + (r.avg_price === null || r.avg_price === undefined ? '-' : r.avg_price)
+                    + ' ' + (r.unit || '')
+                    + '（' + fmtChange(r.change_value) + '）';
+            });
+            return '【模版卡片预览】\n'
+                + '来源：报价播报\n'
+                + '「最新报价播报」\n'
+                + '报价日期 ' + (latestDate || '-') + '\n'
+                + lines.join('\n');
+        }
+
+        // 使用最新报价数据预览消息效果（弹窗展示，多产品逐个渲染后拼接）
+        function previewPushMessage() {
+            var productIds = ($('#push-product-select').val() || []).map(v => parseInt(v)).filter(v => v);
+            if (productIds.length === 0) { notify('请先选择绑定产品'); return; }
+
+            var isCard = $('#push-msg-type').val() === 'card';
+            var template = $('#push-template').val() || PUSH_DEFAULT_TEMPLATE;
+            var preview = $('#push-preview');
+            preview.text('加载中...');
+            openModal('pushPreviewModal');
+
+            var fetches = productIds.map(pid => {
+                var product = adminProductsCache.find(p => String(p.id) === String(pid));
+                if (!product) return Promise.resolve(null);
+                return fetch('/api/price/latest?product=' + encodeURIComponent(product.code) + '&limit=1')
+                .then(r => r.json())
+                .then(data => (data.prices && data.prices.length > 0) ? data.prices[0] : null)
+                .catch(() => null);
+            });
+
+            Promise.all(fetches).then(results => {
+                var records = results.filter(r => r);
+                if (records.length === 0) {
+                    preview.text('所选产品均无报价数据，无法预览');
+                    return;
+                }
+                preview.text(isCard
+                    ? renderPushCardClient(records)
+                    : records.map(rec => renderPushTemplateClient(template, rec)).join('\n\n'));
+            });
+        }
+        
+        // 系统设置管理
+        function loadSettings() {
+            apiFetch('/api/price/admin/settings')
+            .then(response => response.json())
+            .then(data => {
+                if (data.settings) {
+                    systemSettingsCache = {};
+                    data.settings.forEach(item => {
+                        systemSettingsCache[item.key] = item.value;
+                        var input = $('#settings-form [name="' + item.key + '"]');
+                        if (input.length) {
+                            input.val(item.value);
+                        }
+                    });
+                }
+            })
+            .catch(error => {
+                console.error('加载系统设置失败:', error);
+                notify('加载系统设置失败，请检查网络连接');
+            });
+        }
+        
+        function saveSettings() {
+            var formData = {};
+            $('#settings-form').serializeArray().forEach(item => {
+                formData[item.name] = item.value;
+            });
+            
+            submitJson('/api/price/admin/settings', formData, {
+                method: 'PUT',
+                successMessage: '设置保存成功',
+                onSuccess: function() { loadSettings(); }
+            });
+        }
+        
+        // 用户管理
+        function loadUsers() {
+            loadList({
+                url: '/api/price/admin/users',
+                dataKey: 'users',
+                render: data => updateUsersTable(data.users),
+                target: '#users-table tbody',
+                colspan: 4,
+                errorLabel: '加载用户列表失败'
+            });
+        }
+        
+        function updateUsersTable(users) {
+            var tbody = $('#users-table tbody');
+            tbody.empty();
+            
+            if (!users || users.length === 0) {
+                renderTablePlaceholder(tbody, 4, '暂无用户');
+                return;
+            }
+            
+            var currentUsername = $('#header-username').text().trim();
+            var totalCount = users.length;
+            
+            users.forEach(user => {
+                var isSelf = user.username === currentUsername;
+                var isLastAdmin = totalCount <= 1;
+                var canDelete = !isSelf && !isLastAdmin;
+                
+                var row = `
+                    <tr>
+                        <td title="${escapeHtml(user.username)}"><strong>${escapeHtml(user.username)}</strong>${isSelf ? ' <span class="text-muted">(当前用户)</span>' : ''}</td>
+                        <td title="${user.last_login || '-'}">${user.last_login || '-'}</td>
+                        <td title="${user.created_at || '-'}">${user.created_at || '-'}</td>
+                        <td class="cell-wrap">
+                            <div class="action-buttons">
+                                <button class="action-btn edit-btn" data-user-id="${user.id}" data-username="${escapeHtml(user.username)}">编辑</button>
+                                <button class="action-btn delete-btn" data-user-id="${user.id}" data-username="${escapeHtml(user.username)}" ${canDelete ? '' : 'disabled'}>删除</button>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+                tbody.append(row);
+            });
+        }
+        
+        // UTC 时间字符串转北京时间显示（Cloudflare Workers/D1 存储均为 UTC）
+        function toBeijingTime(utcStr) {
+            if (!utcStr) return '-';
+            try {
+                var d = new Date(utcStr.replace(' ', 'T') + (utcStr.indexOf('Z') === -1 && utcStr.indexOf('+') === -1 ? 'Z' : ''));
+                if (isNaN(d.getTime())) return utcStr;
+                return d.toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai', hour12: false });
+            } catch (e) {
+                return utcStr;
+            }
+        }
+        
+        function openUserModal(userId, username) {
+            $('#user-form')[0].reset();
+            
+            if (userId) {
+                $('#user-modal-title').text('编辑用户');
+                $('#user-id').val(userId);
+                $('#user-username').val(username || '');
+                $('#user-password').attr('placeholder', '留空表示不修改密码');
+            } else {
+                $('#user-modal-title').text('新增用户');
+                $('#user-id').val('');
+                $('#user-password').attr('placeholder', '请输入密码');
+            }
+            
+            openModal('userModal');
+        }
+        
+        function saveUser() {
+            var userId = $('#user-id').val();
+            var username = $('#user-username').val().trim();
+            var password = $('#user-password').val();
+            
+            if (!username) {
+                notify('请输入用户名');
+                return;
+            }
+            
+            if (!userId && !password) {
+                notify('新增用户时必须设置密码');
+                return;
+            }
+            
+            if (password && password.length < 8) {
+                notify('密码长度不能少于 8 位');
+                return;
+            }
+            
+            var payload = { username: username };
+            if (password) {
+                payload.password = password;
+            }
+            
+            submitJson(userId ? '/api/price/admin/users/' + userId : '/api/price/admin/users', payload, {
+                method: userId ? 'PUT' : 'POST',
+                successMessage: userId ? '用户更新成功' : '用户创建成功',
+                closeModalId: 'userModal',
+                onSuccess: function() { loadUsers(); }
+            });
+        }
+        
+        function deleteUser(userId, username) {
+            confirmAndRequest('确定要删除用户 "' + username + '" 吗？此操作不可恢复。', '/api/price/admin/users/' + userId, { method: 'DELETE' }, {
+                successMessage: '用户已删除',
+                onSuccess: function() { loadUsers(); }
+            });
+        }
+        
+        // 产品类型
+        var adminProductsCache = [];
+        var systemSettingsCache = {};
+        
+        function loadAdminProducts() {
+            Promise.all([
+                apiFetch('/api/price/admin/products').then(function(r) { return r.json(); }),
+                apiFetch('/api/price/admin/settings').then(function(r) { return r.json(); })
+            ])
+            .then(([productData, settingData]) => {
+                if (productData.products) {
+                    adminProductsCache = productData.products;
+                    if (settingData.settings) {
+                        systemSettingsCache = {};
+                        settingData.settings.forEach(item => {
+                            systemSettingsCache[item.key] = item.value;
+                        });
+                    }
+                    updateProductsTable(productData.products);
+                    populateManualProductSelect();
+                    populateWebhookProductSelect();
+                    populateEditProductSelect();
+                } else {
+                    renderTablePlaceholder('#products-table tbody', 7, '加载失败：' + (productData.error || '未知错误'));
+                }
+            })
+            .catch(error => {
+                console.error('加载产品类型失败:', error);
+                renderTablePlaceholder('#products-table tbody', 7, '加载失败，请检查网络连接');
+            });
+        }
+        
+        function updateProductsTable(products) {
+            var tbody = $('#products-table tbody');
+            tbody.empty();
+            var homepageProduct = systemSettingsCache.homepage_product || '';
+
+            if (!products || products.length === 0) {
+                renderTablePlaceholder(tbody, 7, '暂无产品类型');
+                return;
+            }
+
+            products.forEach(product => {
+                var isHomepage = product.code === homepageProduct;
+                var homepageBtn = isHomepage
+                    ? '<span class="status-badge status-success">当前首页</span>'
+                    : `<button class="action-btn set-homepage-btn" data-product-code="${escapeHtml(product.code)}" data-product-name="${escapeHtml(product.name)}">设为首页</button>`;
+
+                var row = `
+                    <tr>
+                        <td title="${escapeHtml(product.code)}"><code>${escapeHtml(product.code)}</code></td>
+                        <td title="${escapeHtml(product.name)}"><strong>${escapeHtml(product.name)}</strong></td>
+                        <td title="${escapeHtml(product.unit)}">${escapeHtml(product.unit)}</td>
+                        <td title="${escapeHtml(product.spec || '-')}">${escapeHtml(product.spec || '-')}</td>
+                        <td>${product.sort_order}</td>
+                        <td>${renderStatusBadge(product.is_active, '启用', '停用')}</td>
+                        <td class="cell-wrap">
+                            <div class="action-buttons">
+                                ${homepageBtn}
+                                <button class="action-btn edit-btn" data-product-id="${product.id}">编辑</button>
+                                <button class="action-btn delete-btn" data-product-id="${product.id}" data-product-name="${escapeHtml(product.name)}">删除</button>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+                tbody.append(row);
+            });
+        }
+
+        // 设置前台默认首页产品
+        function setHomepageProduct(productCode, productName) {
+            apiFetch('/api/price/admin/settings', {
+                method: 'PUT',
+                body: JSON.stringify({ homepage_product: productCode })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    notify(`已将「${productName}」设为前台首页`);
+                    systemSettingsCache.homepage_product = productCode;
+                    updateProductsTable(adminProductsCache);
+                } else {
+                    notify('设置失败：' + (data.error || '未知错误'));
+                }
+            })
+            .catch(error => {
+                console.error('设置首页产品失败:', error);
+                notify('设置失败，请检查网络连接');
+            });
+        }
+        
+        // 重建产品下拉选项（保留当前选中值；renderOption 接收产品对象并返回 option 的 HTML）
+        function rebuildProductSelect(selector, products, renderOption) {
+            var select = $(selector);
+            var currentVal = select.val();
+            select.find('option:not(:first)').remove();
+            products.forEach(product => select.append(renderOption(product)));
+            if (currentVal && select.find('option[value="' + currentVal.replace(/"/g, '\\"') + '"]').length) {
+                select.val(currentVal);
+            }
+        }
+        
+        function populateManualProductSelect() {
+            rebuildProductSelect('#manual-product-select', adminProductsCache.filter(p => p.is_active), product => {
+                var optionText = escapeHtml(product.name) + ' (' + escapeHtml(product.unit) + ')';
+                return `<option value="${escapeHtml(product.code)}" title="${optionText}">${optionText}</option>`;
+            });
+        }
+        
+        function populateWebhookProductSelect() {
+            rebuildProductSelect('#webhook-target-product-select', adminProductsCache.filter(p => p.is_active), product => {
+                return `<option value="${escapeHtml(product.code)}">${escapeHtml(product.name)}</option>`;
+            });
+        }
+        
+        function populateEditProductSelect() {
+            // 编辑时应包含所有产品（含已停用），否则已停用产品的历史记录无法编辑
+            rebuildProductSelect('#edit-product-select', adminProductsCache, product => {
+                var optionText = escapeHtml(product.name) + ' (' + escapeHtml(product.unit) + ')' + (product.is_active ? '' : ' [已停用]');
+                return `<option value="${escapeHtml(product.code)}" title="${optionText}">${optionText}</option>`;
+            });
+        }
+        
+        function openProductModal(productId) {
+            $('#product-form')[0].reset();
+            $('#product-code').prop('readonly', false);
+            
+            if (productId) {
+                var product = adminProductsCache.find(p => p.id === productId);
+                if (!product) {
+                    notify('未找到产品类型信息');
+                    return;
+                }
+                
+                $('#product-modal-title').text('编辑产品类型');
+                $('#product-id').val(product.id);
+                $('#product-code').val(product.code).prop('readonly', true);
+                $('#product-name').val(product.name);
+                $('#product-unit').val(product.unit);
+                $('#product-spec').val(product.spec || '');
+                $('#product-sort-order').val(product.sort_order);
+                $('#product-is-active').prop('checked', product.is_active == 1 || product.is_active === true);
+            } else {
+                $('#product-modal-title').text('新增产品类型');
+                $('#product-id').val('');
+                $('#product-is-active').prop('checked', true);
+            }
+            
+            openModal('productModal');
+        }
+        
+        function saveProduct() {
+            var productId = $('#product-id').val();
+            var code = $('#product-code').val().trim();
+            var name = $('#product-name').val().trim();
+            var unit = $('#product-unit').val().trim();
+            var spec = $('#product-spec').val().trim();
+            var sortOrder = parseInt($('#product-sort-order').val()) || 0;
+            var isActive = $('#product-is-active').is(':checked');
+            
+            if (!code || !name || !unit) {
+                notify('产品代码、名称和单位不能为空');
+                return;
+            }
+            
+            if (!/^[a-zA-Z0-9_-]+$/.test(code)) {
+                notify('产品代码只能包含字母、数字、下划线和横线');
+                return;
+            }
+            
+            var payload = {
+                code: code,
+                name: name,
+                unit: unit,
+                spec: spec,
+                sort_order: sortOrder,
+                is_active: isActive
+            };
+            
+            submitJson(productId ? '/api/price/admin/products/' + productId : '/api/price/admin/products', payload, {
+                method: productId ? 'PUT' : 'POST',
+                successMessage: productId ? '产品类型更新成功' : '产品类型创建成功',
+                closeModalId: 'productModal',
+                onSuccess: function() { loadAdminProducts(); }
+            });
+        }
+        
+        function deleteProduct(productId, productName) {
+            confirmAndRequest('确定要删除产品类型 "' + productName + '" 吗？已有报价数据的产品类型无法删除。', '/api/price/admin/products/' + productId, { method: 'DELETE' }, {
+                successMessage: '产品类型已删除',
+                onSuccess: function() { loadAdminProducts(); }
+            });
+        }
+        
+        // 手工补录表单提交（实际API调用）
+        $('#manual-form').submit(function(e) {
+            e.preventDefault();
+
+            var formData = {
+                product_code: $('#manual-form select[name="product"]').val(),
+                trade_date: $('#manual-form input[name="date"]').val(),
+                low_price: parseFloat($('#manual-form input[name="low_price"]').val()),
+                high_price: parseFloat($('#manual-form input[name="high_price"]').val()),
+                avg_price: $('#manual-form input[name="avg_price"]').val() || undefined,
+                change_value: parseFloat($('#manual-form input[name="change"]').val()),
+                remark: $('#manual-form textarea[name="remark"]').val()
+            };
+            
+            apiFetch('/api/price/manual', {
+                method: 'POST',
+                body: JSON.stringify(formData)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    notify('数据保存成功！');
+                    // 清空表单
+                    $('#manual-form')[0].reset();
+                    // 重新加载数据
+                    loadRecentPrices();
+                } else {
+                    notify('保存失败：' + (data.error || '未知错误'));
+                }
+            })
+            .catch(error => {
+                console.error('保存失败:', error);
+                notify('保存失败，请检查网络连接');
+            });
+        });
+        
+        // 编辑记录
+        function editRecord(id) {
+            apiFetch(`/api/price/admin/records/${id}`)
+                .then(response => response.json())
+                .then(data => {
+                if (data.record) {
+                    var record = data.record;
+                    $('#edit-form input[name="id"]').val(record.id);
+                    $('#edit-form select[name="product_code"]').val(record.product_code);
+                    $('#edit-form input[name="low_price"]').val(record.low_price);
+                    $('#edit-form input[name="high_price"]').val(record.high_price);
+                    $('#edit-form input[name="avg_price"]').val(record.avg_price);
+                    $('#edit-form input[name="change"]').val(record.change_value);
+                    $('#edit-form textarea[name="remark"]').val(record.remark || '');
+
+                    openModal('editModal');
+                } else {
+                    notify('获取记录失败：' + (data.error || '未知错误'));
+                }
+            })
+            .catch(error => {
+                console.error('获取记录失败:', error);
+                notify('获取记录失败，请检查网络连接');
+            });
+        }
+        
+        // ==================== 定时任务管理 ====================
+        // Cron 频率切换：显示对应的参数区域
+        function onCronFrequencyChange() {
+            var freq = $('#cron-frequency').val();
+            $('#cron-param-minute, #cron-param-hourly, #cron-param-daily, #cron-param-weekly, #cron-param-monthly, #cron-param-custom').hide();
+            if (freq === 'minute') $('#cron-param-minute').show();
+            else if (freq === 'hourly') $('#cron-param-hourly').show();
+            else if (freq === 'daily') $('#cron-param-daily').show();
+            else if (freq === 'weekly') $('#cron-param-weekly').show();
+            else if (freq === 'monthly') $('#cron-param-monthly').show();
+            else if (freq === 'custom') $('#cron-param-custom').show();
+        }
+
+        // 根据可视化参数生成 cron 表达式
+        function buildCronExpression() {
+            var freq = $('#cron-frequency').val();
+            switch (freq) {
+                case 'minute':
+                    var n = parseInt($('input[name="cron_minute_interval"]').val()) || 5;
+                    return '*/' + n + ' * * * *';
+                case 'hourly':
+                    var m = parseInt($('input[name="cron_hourly_minute"]').val()) || 0;
+                    return m + ' * * * *';
+                case 'daily':
+                    var t = ($('input[name="cron_daily_time"]').val() || '00:00').split(':');
+                    return t[1] + ' ' + t[0] + ' * * *';
+                case 'weekly':
+                    var wt = ($('input[name="cron_weekly_time"]').val() || '00:00').split(':');
+                    var days = collectCheckedValues('input[name="cron_dow"]', false);
+                    var dows = days.length > 0 ? days.join(',') : '1-5';
+                    return wt[1] + ' ' + wt[0] + ' * * ' + dows;
+                case 'monthly':
+                    var md = parseInt($('input[name="cron_monthly_day"]').val()) || 1;
+                    var mt = ($('input[name="cron_monthly_time"]').val() || '00:00').split(':');
+                    return mt[1] + ' ' + mt[0] + ' ' + md + ' * *';
+                case 'custom':
+                    return $('input[name="cron_custom"]').val().trim() || '* * * * *';
+                default: return '0 8 * * *';
+            }
+        }
+
+        // URL 预设选择：切换自定义 URL 输入框
+        function onTaskUrlPresetChange() {
+            var val = $('#cron-task-url-preset').val();
+            if (val === '__custom__') {
+                $('#cron-custom-url-container').show();
+            } else {
+                $('#cron-custom-url-container').hide();
+            }
+        }
+
+        // 获取最终任务 URL
+        function getTaskUrl() {
+            var val = $('#cron-task-url-preset').val();
+            if (val === '__custom__') {
+                return $('#cron-task-url-custom').val().trim();
+            }
+            return val;
+        }
+
+        function loadCronJobs() {
+            checkHeartbeat();
+            loadList({
+                url: '/api/price/admin/cron',
+                dataKey: 'jobs',
+                render: data => renderCronTable(data.jobs),
+                target: '#cron-jobs-table tbody',
+                colspan: 8,
+                errorLabel: '加载定时任务失败',
+                failMessage: '加载失败',
+                networkMessage: e => '加载失败：' + String(e.message)
+            });
+        }
+
+        // Cron 日志状态徽章（success/failed/timeout 之外的取值按「运行中」处理）
+        function renderCronLogStatus(status) {
+            var map = {
+                success: ['status-success', '成功'],
+                failed: ['status-danger', '失败'],
+                timeout: ['status-default', '超时/已清理']
+            };
+            var item = map[status] || ['status-warning', '运行中'];
+            return '<span class="status-badge ' + item[0] + '">' + item[1] + '</span>';
+        }
+
+        function loadCronLogs() {
+            loadList({
+                url: '/api/price/admin/cron/logs?limit=50',
+                dataKey: 'logs',
+                render: data => renderCronLogsTable(data.logs),
+                target: '#cron-logs-table tbody',
+                colspan: 6,
+                errorLabel: '加载日志失败',
+                failMessage: '加载失败',
+                networkMessage: e => '加载失败：' + String(e.message)
+            });
+        }
+
+        function renderCronLogsTable(logs) {
+            var tbody = $('#cron-logs-table tbody');
+            tbody.empty();
+            if (!logs || logs.length === 0) {
+                renderTablePlaceholder(tbody, 6, '暂无日志');
+                return;
+            }
+            var cellStyle = TRUNC_CELL_STYLE;
+            logs.forEach(log => {
+                var nameHtml = escapeHtml(log.job_name);
+                var msgText = log.message || '-';
+                var msgHtml = escapeHtml(msgText.length > 80 ? msgText.substring(0, 80) + '...' : msgText);
+                tbody.append(`<tr>
+                    <td><input type="checkbox" class="log-checkbox" value="${log.id}" onchange="updateBatchDeleteBtn()"></td>
+                    <td title="${nameHtml}" style="${cellStyle} max-width: 120px;">${nameHtml}</td>
+                    <td>${renderCronLogStatus(log.status)}</td>
+                    <td title="${escapeHtml(msgText)}" style="${cellStyle} max-width: 300px;">${msgHtml}</td>
+                    <td title="${escapeHtml(log.started_at || '') || '-'}" style="${cellStyle} max-width: 130px;">${toBeijingTime(log.started_at)}</td>
+                    <td title="${escapeHtml(log.finished_at || '') || '-'}" style="${cellStyle} max-width: 130px;">${toBeijingTime(log.finished_at)}</td>
+                </tr>`);
+            });
+        }
+
+        function renderCronTable(jobs) {
+            var tbody = $('#cron-jobs-table tbody');
+            tbody.empty();
+            if (!jobs || jobs.length === 0) {
+                renderTablePlaceholder(tbody, 8, '暂无定时任务，请在 Cloudflare Dashboard 添加 Cron Trigger 心跳后在此创建任务');
+                return;
+            }
+            // 类型列改为显示 URL 摘要
+            var cellStyle = TRUNC_CELL_STYLE;
+            jobs.forEach(job => {
+                var status = renderStatusBadge(job.enabled, '启用', '停用');
+                var lastRunRaw = job.last_run_at || '-';
+                var lastRun = toBeijingTime(job.last_run_at);
+                var lastMsg = job.last_run_message ? job.last_run_message.substring(0, 50) : '-';
+                var nameHtml = escapeHtml(job.name);
+                var cronHtml = escapeHtml(job.cron_expression);
+                var msgHtml = escapeHtml(lastMsg);
+                var fullMsg = escapeHtml(job.last_run_message || '');
+                var urlShort = (job.task_url || '');
+                if (urlShort.startsWith('/api/price/admin/cron/_internal/')) {
+                    urlShort = urlShort.replace('/api/price/admin/cron/_internal/', '内部: ');
+                }
+                if (urlShort.length > 30) urlShort = urlShort.substring(0, 30) + '...';
+                tbody.append(`<tr>
+                    <td style="text-align: center;"><input type="checkbox" class="cron-row-check" value="${job.id}"></td>
+                    <td title="${nameHtml}" style="${cellStyle} max-width: 140px;"><strong>${nameHtml}</strong></td>
+                    <td title="${cronHtml}" style="${cellStyle} max-width: 130px;"><code>${cronHtml}</code></td>
+                    <td title="${escapeHtml(job.task_url || '')}" style="${cellStyle} max-width: 140px;">${escapeHtml(urlShort)}</td>
+                    <td>${status}</td>
+                    <td title="${escapeHtml(lastRunRaw)}" style="${cellStyle} max-width: 150px;">${lastRun}</td>
+                    <td title="${fullMsg}" style="${cellStyle} max-width: 130px;">${msgHtml}</td>
+                    <td style="white-space: nowrap;">
+                        <div class="action-buttons">
+                            <button class="action-btn cron-run-btn" data-job-id="${job.id}" style="color: #27ae60;">执行</button>
+                            <button class="action-btn edit-btn cron-edit-btn" data-job-id="${job.id}">编辑</button>
+                            <button class="action-btn delete-btn cron-delete-btn" data-job-id="${job.id}" data-job-name="${escapeHtml(job.name)}">删除</button>
+                        </div>
+                    </td>
+                </tr>`);
+            });
+        }
+
+        function openCronModal(id) {
+            $('#cron-form')[0].reset();
+            $('#cron-id').val('');
+            $('#cron-modal-title').text('新增定时任务');
+            $('#cron-frequency').val('daily').change();
+            $('#cron-task-url-preset').val('').change();
+            if (id) {
+                $('#cron-modal-title').text('编辑定时任务');
+                apiFetch('/api/price/admin/cron/' + id)
+                    .then(r => r.json())
+                    .then(data => {
+                        if (data.job) {
+                            $('#cron-id').val(data.job.id);
+                            $('#cron-name').val(data.job.name);
+                            // 尝试还原 cron 表达式到可视化表单
+                            setCronFormFromExpression(data.job.cron_expression);
+                            // 还原 URL
+                            var url = data.job.task_url || '';
+                            if (url === '/api/price/admin/cron/_internal/recalc' || url === '/api/price/admin/cron/_internal/data-check') {
+                                $('#cron-task-url-preset').val(url);
+                            } else if (url) {
+                                $('#cron-task-url-preset').val('__custom__');
+                                $('#cron-task-url-custom').val(url);
+                            }
+                            onTaskUrlPresetChange();
+                            $('#cron-enabled').prop('checked', data.job.enabled == 1);
+                        }
+                    });
+            }
+            openModal('cronModal');
+        }
+
+        // 根据 cron 表达式还原可视化表单（简单启发式匹配）
+        function setCronFormFromExpression(expr) {
+            if (!expr) return;
+            expr = expr.trim();
+            // */5 * * * * → minute
+            var mm = expr.match(/^\*\/(\d+) \* \* \* \*$/);
+            if (mm) { $('#cron-frequency').val('minute'); $('input[name="cron_minute_interval"]').val(mm[1]); onCronFrequencyChange(); return; }
+            // M * * * * → hourly
+            var hm = expr.match(/^(\d+) \* \* \* \*$/);
+            if (hm && !expr.includes('/')) { $('#cron-frequency').val('hourly'); $('input[name="cron_hourly_minute"]').val(hm[1]); onCronFrequencyChange(); return; }
+            // M H * * DOW → weekly
+            var wm = expr.match(/^(\d+) (\d+) \* \* (.+)$/);
+            if (wm) {
+                var parts = expr.split(/\s+/);
+                if (parts.length >= 5) {
+                    var min = parts[0], hour = parts[1], dom = parts[2], mon = parts[3], dow = parts[4];
+                    if (dom === '*' && mon === '*' && dow !== '*') {
+                        // weekly
+                        $('#cron-frequency').val('weekly');
+                        $('input[name="cron_weekly_time"]').val(hour.padStart(2,'0') + ':' + min.padStart(2,'0'));
+                        $('input[name="cron_dow"]').prop('checked', false);
+                        dow.split(',').forEach(function(d) { $('input[name="cron_dow"][value="' + d + '"]').prop('checked', true); });
+                        onCronFrequencyChange(); return;
+                    }
+                    if (dom !== '*' && mon === '*' && dow === '*') {
+                        // monthly
+                        $('#cron-frequency').val('monthly');
+                        $('input[name="cron_monthly_day"]').val(dom);
+                        $('input[name="cron_monthly_time"]').val(hour.padStart(2,'0') + ':' + min.padStart(2,'0'));
+                        onCronFrequencyChange(); return;
+                    }
+                    if (dom === '*' && mon === '*' && dow === '*') {
+                        // daily
+                        $('#cron-frequency').val('daily');
+                        $('input[name="cron_daily_time"]').val(hour.padStart(2,'0') + ':' + min.padStart(2,'0'));
+                        onCronFrequencyChange(); return;
+                    }
+                }
+            }
+            // fallback: custom
+            $('#cron-frequency').val('custom');
+            $('input[name="cron_custom"]').val(expr);
+            onCronFrequencyChange();
+        }
+
+        // 心跳状态检测
+        function checkHeartbeat() {
+            apiFetch('/api/price/admin/cron/heartbeat')
+                .then(r => r.json())
+                .then(data => {
+                    var dot = $('#heartbeat-dot');
+                    var text = $('#heartbeat-text');
+                    var timeEl = $('#heartbeat-time');
+                    if (data.is_alive) {
+                        dot.css('background', '#28a745');
+                        text.text('正常运行');
+                        text.css('color', '#28a745');
+                        timeEl.text('上次心跳：' + (data.last_heartbeat_beijing || data.last_heartbeat_at || '-'));
+                    } else {
+                        dot.css('background', '#dc3545');
+                        text.text('未检测到心跳，请在 Cloudflare Dashboard → Workers → Triggers 添加 Cron Trigger');
+                        text.css('color', '#dc3545');
+                        timeEl.text(data.last_heartbeat_at ? '上次心跳：' + (data.last_heartbeat_beijing || data.last_heartbeat_at) + '（已超时）' : '从未检测到心跳');
+                    }
+                })
+                .catch(e => {
+                    $('#heartbeat-dot').css('background', '#ffc107');
+                    $('#heartbeat-text').text('检测失败').css('color', '#ffc107');
+                });
+        }
+
+        // 日志全选/取消全选
+        function toggleAllLogs(checkbox) {
+            toggleSelectAll('.log-checkbox', checkbox.checked, updateBatchDeleteBtn);
+        }
+
+        // 更新批量删除按钮状态
+        function updateBatchDeleteBtn() {
+            updateBatchDeleteButton('#btn-batch-delete-logs', '.log-checkbox', function(count) {
+                return count > 0 ? '删除选中日志 (' + count + ')' : '批量删除选中日志';
+            });
+        }
+
+        // 批量删除日志
+        function batchDeleteCronLogs() {
+            var ids = collectCheckedValues('.log-checkbox', true);
+            if (ids.length === 0) return;
+            confirmAndRequest('确定要删除选中的 ' + ids.length + ' 条日志吗？此操作不可恢复。', '/api/price/admin/cron/logs', {
+                method: 'DELETE',
+                body: JSON.stringify({ ids: ids })
+            }, {
+                successMessage: '已删除选中日志',
+                onSuccess: function() { loadCronLogs(); }
+            });
+        }
+
+        // 清理残留的运行中任务（超过 30 分钟仍未结束的标记为超时）
+        function clearStaleRunningTasks() {
+            openConfirmModal('将把「运行中」超过 30 分钟的任务标记为超时/已清理，确定继续吗？', function() {
+                apiFetch('/api/price/admin/cron/clear-stale', {
+                    method: 'POST',
+                    body: JSON.stringify({ minutes: 30 })
+                })
+                    .then(r => r.json())
+                    .then(data => {
+                        if (data.success) {
+                            showResultModal('清理残留任务', [{ name: '清理完成', success: true, message: '已清理 ' + (data.cleared || 0) + ' 条残留运行中任务' }]);
+                            loadCronLogs();
+                        } else {
+                            showResultModal('清理残留任务', [{ name: '清理失败', success: false, message: data.error || data.details || '未知错误' }]);
+                        }
+                    })
+                    .catch(e => showResultModal('清理残留任务', [{ name: '清理失败', success: false, message: '请求失败：' + e.message }]));
+            }, { title: '确认清理', okText: '确定清理' });
+        }
+
+        function saveCronJob() {
+            var id = $('#cron-id').val();
+            var payload = {
+                name: $('#cron-name').val().trim(),
+                cron_expression: buildCronExpression(),
+                task_url: getTaskUrl(),
+                enabled: checkedBit('#cron-enabled')
+            };
+            var missing = [];
+            if (!payload.name) missing.push('任务名称');
+            if (!payload.cron_expression) missing.push('执行频率');
+            if (!payload.task_url) missing.push('任务 URL');
+            if (missing.length > 0) { notify('请填写：' + missing.join('、')); return; }
+            submitJson(id ? '/api/price/admin/cron/' + id : '/api/price/admin/cron', payload, {
+                method: id ? 'PUT' : 'POST',
+                successMessage: '保存成功',
+                closeModalId: 'cronModal',
+                onSuccess: function() { loadCronJobs(); }
+            });
+        }
+
+        function deleteCronJob(id, name) {
+            confirmAndRequest('确定要删除任务 "' + name + '" 吗？', '/api/price/admin/cron/' + id, { method: 'DELETE' }, {
+                successMessage: '已删除',
+                onSuccess: function() { loadCronJobs(); }
+            });
+        }
+
+        function runCronJob(id) {
+            openConfirmModal('确定要立即执行该任务吗？', function() {
+                apiFetch('/api/price/admin/cron/' + id + '/run', { method: 'POST' })
+                    .then(r => r.json())
+                    .then(d => {
+                        showResultModal('任务执行', [{
+                            name: '任务 #' + id,
+                            success: !!d.success,
+                            message: d.success ? (d.message || '执行成功') : (d.error || d.details || '执行失败')
+                        }]);
+                        loadCronJobs(); loadCronLogs();
+                    })
+                    .catch(e => showResultModal('任务执行', [{ name: '任务 #' + id, success: false, message: '请求失败：' + e.message }]));
+            }, { title: '确认执行', okText: '立即执行' });
+        }
+
+        function batchRunCronJobs() {
+            var ids = collectCheckedValues('.cron-row-check', true);
+            if (ids.length === 0) { notify('请先勾选要执行的任务'); return; }
+            openConfirmModal('确定批量执行 ' + ids.length + ' 个任务吗？', function() {
+                apiFetch('/api/price/admin/cron/batch-run', {
+                    method: 'POST',
+                    body: JSON.stringify({ ids: ids })
+                })
+                    .then(r => r.json())
+                    .then(d => {
+                        if (d && d.results) {
+                            showResultModal('批量执行（成功 ' + d.successCount + ' / 失败 ' + d.failedCount + '）', d.results.map(function(x) {
+                                return { name: x.name || ('任务 #' + x.id), success: !!x.success, message: x.message || '' };
+                            }));
+                            loadCronJobs(); loadCronLogs();
+                        } else {
+                            showResultModal('批量执行', [{ name: '批量执行', success: false, message: d.error || d.details || '未知错误' }]);
+                        }
+                    })
+                    .catch(e => showResultModal('批量执行', [{ name: '批量执行', success: false, message: '请求失败：' + e.message }]));
+            }, { title: '确认执行', okText: '批量执行' });
+        }
+        
+    </script>
+</body>
+</html>

@@ -1,0 +1,429 @@
+/* 报价查询系统 - 移动端适配 CSS */
+
+/* 基础移动端优化 */
+@media (max-width: 768px) {
+    /* 全局调整 */
+    body {
+        font-size: 14px;
+        padding: 10px 0 20px;
+        -webkit-text-size-adjust: 100%;
+    }
+
+    .container {
+        padding-left: 10px;
+        padding-right: 10px;
+        max-width: 100%;
+    }
+
+    /* 头部区域 */
+    .history-header {
+        gap: 12px;
+    }
+
+    .header-info h1 {
+        font-size: 20px;
+        margin-bottom: 6px;
+    }
+
+    .header-info .text-muted {
+        font-size: 12px;
+    }
+
+    /* 产品标签切换：横排可滑动，避免竖排堆叠占用过多纵向空间 */
+    .product-tabs-container {
+        width: 100%;
+    }
+
+    .product-tabs {
+        flex-direction: row;
+        flex-wrap: nowrap;
+        justify-content: center;
+        gap: 6px;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        width: 100%;
+        scrollbar-width: none;
+    }
+
+    .product-tabs::-webkit-scrollbar {
+        display: none;
+    }
+
+    .product-tab {
+        flex: 0 0 auto;
+        min-width: auto;
+        padding: 10px 16px;
+        font-size: 13px;
+        border-radius: 6px;
+        text-align: center;
+        white-space: nowrap;
+    }
+
+    /* 走势图周期切换 */
+    .chart-period-tabs {
+        width: 100%;
+        justify-content: space-between;
+    }
+
+    .chart-period-tab {
+        flex: 1;
+        text-align: center;
+        padding: 7px 0;
+        font-size: 12px;
+    }
+
+    /* 走势图与日期区间计算器左右布局 */
+    .chart-calculator-layout {
+        flex-direction: column;
+        gap: 12px;
+    }
+
+    .chart-wrapper {
+        min-height: 220px;
+    }
+
+    .date-range-calculator {
+        width: 100%;
+    }
+
+    .date-range-calculator h4 {
+        font-size: 14px;
+    }
+
+    /* 历史表格分页工具条 */
+    .history-toolbar {
+        flex-wrap: wrap;
+        gap: 8px;
+        padding: 10px;
+    }
+
+    .history-table-layout {
+        flex-direction: column;
+        gap: 12px;
+    }
+
+    .history-table-column {
+        width: 100%;
+    }
+
+    .year-selector {
+        gap: 8px;
+    }
+
+    .year-selector label {
+        font-size: 13px;
+    }
+
+    .year-selector .form-control {
+        min-width: 90px;
+        padding: 0 10px;
+    }
+
+    .month-tabs {
+        justify-content: flex-start;
+        gap: 4px;
+        order: 3;
+        width: 100%;
+    }
+
+    .month-tab {
+        padding: 5px 8px;
+        font-size: 11px;
+        min-width: 36px;
+    }
+
+    .history-total {
+        text-align: right;
+        font-size: 12px;
+    }
+
+    /* 打印按钮 */
+    .print-btn {
+        bottom: 15px;
+        right: 15px;
+        padding: 10px 16px;
+        font-size: 12px;
+        border-radius: 25px;
+    }
+
+    .print-btn i {
+        margin-right: 5px;
+    }
+
+    /* 后台管理链接 */
+    .admin-link {
+        bottom: 15px;
+        left: 15px;
+        font-size: 12px;
+    }
+
+    /* 表单适配（输入内边距由 base.css 统一提供） */
+    .form-control {
+        font-size: 14px;
+        border-radius: 4px;
+    }
+    
+    .btn {
+        padding: 8px 16px;
+        font-size: 13px;
+        border-radius: 4px;
+    }
+    
+    /* 历史表格移动端溢出处理 */
+    .history-table-column {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+    .history-table td {
+        max-width: 90px;
+    }
+}
+
+/* 超小屏幕适配 (iPhone SE 等) */
+@media (max-width: 375px) {
+    .history-section {
+        padding: 12px;
+    }
+
+    .header-info h1 {
+        font-size: 18px;
+    }
+
+    .product-tab {
+        padding: 9px 12px;
+        font-size: 12px;
+    }
+
+    .stat-value {
+        font-size: 14px;
+    }
+
+    .print-btn {
+        padding: 8px 14px;
+        font-size: 11px;
+        bottom: 10px;
+        right: 10px;
+    }
+
+    .admin-link {
+        bottom: 10px;
+        left: 10px;
+        font-size: 11px;
+    }
+
+    .history-toolbar {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 8px;
+    }
+
+    .year-selector {
+        justify-content: space-between;
+    }
+
+    /* 恢复自然顺序：年份选择器 → 月份标签 → 统计文字 */
+    .month-tabs {
+        order: 0;
+        justify-content: flex-start;
+    }
+
+    .history-total {
+        text-align: center;
+    }
+}
+
+/* 平板适配 (768px - 1024px) */
+@media (min-width: 769px) and (max-width: 1024px) {
+    .container {
+        max-width: 95%;
+    }
+
+    .product-tabs {
+        flex-wrap: wrap;
+    }
+
+    .product-tab {
+        flex: 0 0 calc(33.333% - 10px);
+        min-width: 0;
+    }
+}
+
+/* 横屏模式优化 */
+@media (max-height: 500px) and (orientation: landscape) {
+    .header-info h1 {
+        font-size: 18px;
+    }
+
+    .product-tabs {
+        flex-direction: row;
+        flex-wrap: wrap;
+    }
+
+    .product-tab {
+        flex: 0 0 calc(20% - 8px);
+        min-width: 0;
+        padding: 7px 10px;
+        font-size: 11px;
+    }
+
+    .chart-wrapper {
+        min-height: 180px;
+    }
+
+    .chart-period-tab {
+        padding: 5px 0;
+        font-size: 11px;
+    }
+}
+
+/* 触摸设备优化 */
+@media (hover: none) and (pointer: coarse) {
+    /* 增大触摸目标 */
+    .product-tab,
+    .btn,
+    .print-btn,
+    .admin-link {
+        min-height: 44px; /* Apple 推荐的最小触摸目标尺寸 */
+    }
+
+    .product-tab {
+        padding: 12px 16px;
+    }
+
+    .btn {
+        padding: 10px 20px;
+    }
+
+    /* 移除悬停效果 */
+    .product-tab:hover,
+    .btn:hover {
+        transform: none;
+    }
+
+    /* 增加点击反馈 */
+    .product-tab:active,
+    .btn:active {
+        opacity: 0.7;
+    }
+
+    /* 表单输入优化 */
+    input, select, textarea {
+        font-size: 16px; /* 防止 iOS 缩放 */
+    }
+
+    .form-control {
+        min-height: 44px;
+    }
+}
+
+/* 深色模式支持 */
+@media (prefers-color-scheme: dark) {
+    :root {
+        --primary-color: #ecf0f1;
+        --secondary-color: #3498db;
+        --light-bg: #2c3e50;
+        --border-color: #34495e;
+
+        /* 语义变量整体翻转，使 price-styles.css 不必逐条覆盖硬编码色 */
+        --text-secondary: #bdc3c7;
+        --surface-muted: #34495e;
+        --accent-color: #60a5fa;
+        --accent-strong: #93c5fd;
+        --accent-deep: #bfdbfe;
+        --focus-color: #60a5fa;
+        --neutral-color: #bdc3c7;
+        --table-border: #34495e;
+    }
+
+    body {
+        background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+        color: #ecf0f1;
+    }
+
+    .history-section,
+    .stat-item,
+    .date-range-calculator {
+        background: #2c3e50;
+        color: #ecf0f1;
+    }
+
+    .chart-container {
+        background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+    }
+
+    /* 表头单元格自身有浅色底 + var(--primary-color) 文字色，
+       深色模式下 --primary-color 变近白，必须一并覆盖，否则白字白底不可读 */
+    .history-table th {
+        background: #34495e;
+        color: #ecf0f1;
+        border-bottom-color: #34495e;
+        border-right-color: #34495e;
+    }
+
+    /* 表格容器在 price-styles.css 中写死白底，且 td 无显式文字色，
+       会继承 .history-section 的近白文字形成白底白字，必须覆盖 */
+    .history-table-column,
+    .history-table {
+        background: #2c3e50;
+    }
+
+    .history-table td {
+        color: #ecf0f1;
+    }
+
+    .text-muted {
+        color: #bdc3c7 !important;
+    }
+
+    .form-control {
+        background: #34495e;
+        border-color: #4a6572;
+        color: #ecf0f1;
+    }
+
+    .form-control:focus {
+        background: #2c3e50;
+        border-color: var(--secondary-color);
+    }
+
+    /* .date-range-calculator / .year-selector 下的 .form-control 特异性(0,2,0)
+       高于上方 .form-control(0,1,0)，其写死的浅色底（白/半透明）不会被覆盖，需同等级覆盖 */
+    .date-range-calculator .form-control,
+    .year-selector .form-control {
+        background: #34495e;
+        border-color: #4a6572;
+        color: #ecf0f1;
+    }
+
+    .product-tab:hover {
+        color: #ecf0f1;
+        background: rgba(255, 255, 255, 0.1);
+    }
+
+    .product-tab.active {
+        background: var(--secondary-color);
+        color: #fff;
+    }
+
+    .month-tab:hover {
+        color: #ecf0f1;
+        background: rgba(255, 255, 255, 0.1);
+    }
+
+    .month-tab.active {
+        background: var(--secondary-color);
+        color: #fff;
+    }
+
+    .date-range-calculator h4 {
+        background: linear-gradient(135deg, #34495e 0%, #2c3e50 100%);
+        border-color: rgba(52, 152, 219, 0.3);
+        color: #ecf0f1;
+    }
+
+    .date-range-calculator .calculator-result {
+        background: rgba(52, 73, 94, 0.5);
+    }
+}
+
+/* 打印样式统一收敛至 price-styles.css 的 @media print */

@@ -1,0 +1,39 @@
+name = "znwork"
+main = "price-worker.js"
+compatibility_date = "2026-06-01"
+compatibility_flags = ["nodejs_compat"]
+
+[[d1_databases]]
+binding = "DB"
+database_name = "znwork-price-db"
+# 执行 wrangler d1 create znwork-price-db 后，把输出的 id 填到这里
+database_id = "<YOUR_D1_DATABASE_ID>"
+
+# 注意：敏感配置（API 密钥、JWT 密钥等）存储在 D1 system_settings 表中，
+# 请部署后通过管理后台配置。[vars] 中仅存放非敏感的运行参数。
+[vars]
+# 本 Worker 对外的公开访问地址，用于生成推送卡片中的链接等。
+# 不配置时回退为占位域名 https://example.com，请改成自己的实际域名。
+WORKER_URL = "https://example.com"
+
+# 自定义域名与路由（可选）：改成自己的域名后取消注释，
+# 且该域名所在 zone 需已托管在本账号下。
+# [[routes]]
+# pattern = "example.com/*"
+# zone_name = "example.com"
+
+# 本地开发配置
+[dev]
+port = 8787
+ip = "127.0.0.1"
+
+[assets]
+directory = "./public"
+binding = "ASSETS"
+run_worker_first = true
+
+[env.production]
+workers_dev = false
+
+[env.staging]
+workers_dev = true

@@ -1,0 +1,775 @@
+/* 报价查询系统 - 主样式文件 */
+/* 包含组件样式和布局样式（CSS变量/输入控件内边距/body 基础见 base.css） */
+
+/* ===== 基础样式 ===== */
+body {
+    padding: 15px 0 25px;
+}
+
+.container {
+    width: 100%;
+    max-width: 1200px;
+    padding-left: 15px;
+    padding-right: 15px;
+}
+
+/* ===== 历史数据区域 ===== */
+.history-section {
+    background: rgba(255, 255, 255, 0.95);
+    border-radius: 12px;
+    padding: 20px;
+    border: 1px solid rgba(59, 130, 246, 0.12);
+    box-shadow: 0 8px 32px rgba(59, 130, 246, 0.1), 0 2px 8px rgba(0, 0, 0, 0.04);
+    backdrop-filter: blur(10px);
+}
+
+.history-header {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    margin-bottom: 18px;
+    padding-bottom: 15px;
+    border-bottom: 2px solid rgba(59, 130, 246, 0.1);
+}
+
+.header-info h1 {
+    margin: 0 0 8px 0;
+    font-size: 24px;
+    background: linear-gradient(90deg, var(--accent-deep) 0%, #0891b2 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.header-info .text-muted {
+    color: var(--text-secondary);
+    font-size: 13px;
+    margin: 0;
+}
+
+/* ===== 产品标签切换 ===== */
+.product-tabs-container {
+    display: flex;
+    align-items: center;
+}
+
+.product-tabs {
+    display: flex;
+    background: var(--surface-muted);
+    border-radius: 10px;
+    padding: 4px;
+    gap: 4px;
+}
+
+.product-tab {
+    padding: 7px 14px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 13px;
+    color: var(--text-secondary);
+    transition: all 0.25s;
+    white-space: nowrap;
+}
+
+.product-tab:hover {
+    color: var(--accent-strong);
+    background: rgba(255, 255, 255, 0.6);
+}
+
+.product-tab.active {
+    background: white;
+    color: var(--accent-color);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+}
+
+/* ===== 价格走势图样式 ===== */
+.chart-container {
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    border-radius: 10px;
+    padding: 10px;
+    border: 1px solid var(--border-color);
+    display: flex;
+    flex-direction: column;
+}
+
+.chart-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+    flex-shrink: 0;
+}
+
+.chart-header h4 {
+    margin: 0;
+    color: var(--primary-color);
+    font-size: 20px;
+    font-weight: 800;
+}
+
+.chart-header h4 i {
+    font-size: 18px;
+}
+
+.chart-info span {
+    font-weight: 700;
+    color: var(--secondary-color);
+    font-size: 11px;
+}
+
+#chart-product-name {
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--secondary-color);
+}
+
+.chart-period-tabs {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 6px;
+    padding: 2px;
+    background: rgba(255,255,255,0.6);
+    border-radius: 6px;
+    width: fit-content;
+    flex-shrink: 0;
+}
+
+.chart-period-tab {
+    padding: 4px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    transition: all 0.25s;
+    user-select: none;
+}
+
+.chart-period-tab:hover {
+    color: var(--secondary-color);
+    background: rgba(52, 152, 219, 0.08);
+}
+
+.chart-period-tab.active {
+    background: var(--secondary-color);
+    color: white;
+    box-shadow: 0 2px 6px rgba(52, 152, 219, 0.25);
+}
+
+.chart-wrapper {
+    flex: 1;
+    min-height: 240px;
+    max-height: 300px;
+    position: relative;
+    display: flex;
+}
+
+.chart-wrapper canvas {
+    flex: 1;
+    width: 100% !important;
+    height: 100% !important;
+}
+
+.chart-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(95px, 1fr));
+    gap: 6px;
+    margin-top: 8px;
+    flex-shrink: 0;
+}
+
+.stat-item {
+    background: white;
+    padding: 10px 6px;
+    border-radius: 6px;
+    text-align: center;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.06);
+    border: 1px solid var(--border-color);
+    border-top: 3px solid var(--neutral-color);
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.stat-item:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+
+/* 本月最高、本月最低、月均价、涨跌幅颜色区分 */
+.stat-item:nth-child(1) { border-top-color: var(--danger-color); }
+.stat-item:nth-child(2) { border-top-color: var(--success-color); }
+.stat-item:nth-child(3) { border-top-color: var(--secondary-color); }
+.stat-item:nth-child(4) { border-top-color: var(--warning-color); }
+
+.stat-label {
+    font-size: 12px;
+    color: var(--text-secondary);
+    margin-bottom: 5px;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+}
+
+.stat-value {
+    font-size: 18px;
+    font-weight: 800;
+    color: var(--primary-color);
+}
+
+/* ===== 文本颜色工具类 ===== */
+.text-success {
+    color: var(--success-color) !important;
+}
+
+.text-danger {
+    color: var(--danger-color) !important;
+}
+
+/* ===== 历史数据表格样式 ===== */
+.history-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin: 18px 0 10px;
+    padding: 12px;
+    background: var(--surface-muted);
+    border-radius: 10px;
+    flex-wrap: nowrap;
+}
+
+.year-selector {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-shrink: 0;
+}
+
+.year-selector label {
+    font-weight: 600;
+    color: var(--primary-color);
+    font-size: 14px;
+    white-space: nowrap;
+}
+
+.year-selector .form-control {
+    width: auto;
+    min-width: 110px;
+    padding: 0 10px;
+    font-size: 14px;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    background: white;
+    color: var(--text-secondary);
+}
+
+.year-selector .form-control:focus {
+    outline: none;
+    border-color: var(--focus-color);
+}
+
+.month-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    justify-content: center;
+    flex: 1;
+}
+
+.month-tab {
+    padding: 6px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    transition: all 0.25s;
+    user-select: none;
+    min-width: 50px;
+    text-align: center;
+}
+
+.month-tab:hover {
+    color: var(--accent-strong);
+    background: rgba(255, 255, 255, 0.6);
+}
+
+.month-tab.active {
+    background: white;
+    color: var(--accent-color);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+}
+
+.history-total {
+    font-size: 13px;
+    color: var(--text-secondary);
+    text-align: right;
+    white-space: nowrap;
+    flex-shrink: 0;
+    font-weight: 600;
+}
+
+/* ===== 历史数据双列表格布局 ===== */
+.history-table-layout {
+    display: flex;
+    gap: 15px;
+}
+
+.history-table-column {
+    flex: 1;
+    min-width: 0;
+    overflow-x: auto;
+    background: white;
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+    box-shadow: 0 2px 6px rgba(0,0,0,0.04);
+}
+
+.history-table-column .history-table {
+    width: 100%;
+    min-width: 320px;
+}
+
+.history-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+    background: white;
+}
+
+.history-table th {
+    background: #f4f7f9;
+    padding: 10px 8px;
+    text-align: center;
+    font-weight: 700;
+    color: var(--primary-color);
+    border-bottom: 2px solid #d0d8dd;
+    border-right: 1px solid #e1e8ed;
+    white-space: nowrap;
+}
+
+.history-table th:last-child {
+    border-right: none;
+}
+
+/* 表头单位标注（由后台“产品类型”维护，前端按产品填充）：独占一行居中，避免撑宽列宽 */
+.history-table th .unit-tag {
+    display: block;
+    font-weight: 400;
+    font-size: 0.85em;
+}
+
+.history-table td {
+    padding: 8px 10px;
+    text-align: center;
+    border-bottom: 1px solid var(--table-border);
+    border-right: 1px solid var(--table-border);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 130px;
+}
+
+.history-table td:last-child {
+    border-right: none;
+}
+
+.history-table tr:hover {
+    background: rgba(52, 152, 219, 0.05);
+}
+
+/* 涨跌行背景色 */
+.history-table tr.row-up {
+    background: rgba(39, 174, 96, 0.08);
+}
+
+.history-table tr.row-down {
+    background: rgba(231, 76, 60, 0.08);
+}
+
+.history-table tr.row-neutral {
+    background: rgba(149, 165, 166, 0.05);
+}
+
+.history-table tr.row-up:hover,
+.history-table tr.row-down:hover,
+.history-table tr.row-neutral:hover {
+    background: rgba(52, 152, 219, 0.08);
+}
+
+.history-table .change-up {
+    color: var(--success-color);
+    font-weight: 600;
+}
+
+.history-table .change-down {
+    color: var(--danger-color);
+    font-weight: 600;
+}
+
+.history-table .change-neutral {
+    color: var(--neutral-color);
+}
+
+/* ===== 走势图与日期区间计算器左右布局 ===== */
+.chart-calculator-layout {
+    display: flex;
+    gap: 15px;
+    margin-bottom: 18px;
+    align-items: stretch;
+}
+
+.chart-calculator-layout .chart-container {
+    flex: 1;
+    margin-bottom: 0;
+    min-width: 0;
+}
+
+.date-range-calculator {
+    width: 250px;
+    flex-shrink: 0;
+    background: rgba(255, 255, 255, 0.9);
+    border-radius: 12px;
+    padding: 10px;
+    box-shadow: 0 8px 24px rgba(59, 130, 246, 0.08);
+    border: 1px solid rgba(59, 130, 246, 0.12);
+    display: flex;
+    flex-direction: column;
+}
+
+.date-range-calculator h4 {
+    margin: 0 0 8px 0;
+    color: var(--accent-strong);
+    font-size: 15px;
+    font-weight: 800;
+    background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+    border: 1px solid rgba(59, 130, 246, 0.2);
+    border-radius: 8px;
+    padding: 8px 10px;
+    flex-shrink: 0;
+}
+
+.date-range-calculator h4 i {
+    font-size: 12px;
+}
+
+.date-range-calculator .calculator-form {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 8px;
+    flex-shrink: 0;
+}
+
+.date-range-calculator .calculator-input {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.date-range-calculator .calculator-input label {
+    font-weight: 700;
+    color: var(--accent-deep);
+    font-size: 15px;
+}
+
+.date-range-calculator .form-control {
+    padding: 0 10px;
+    border: 2px solid rgba(59, 130, 246, 0.15);
+    border-radius: 6px;
+    font-size: 13px;
+    transition: all 0.3s;
+    width: 100%;
+    height: 34px;
+    background: rgba(255, 255, 255, 0.8);
+}
+
+.date-range-calculator .form-control:focus {
+    outline: none;
+    border-color: var(--focus-color);
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.date-range-calculator .btn-block {
+    width: 100%;
+    padding: 6px 8px;
+    font-size: 13px;
+    border-radius: 6px;
+    height: 34px;
+}
+
+.date-range-calculator .calculator-result {
+    background: linear-gradient(135deg, rgba(239, 246, 255, 0.8) 0%, rgba(224, 242, 254, 0.8) 100%);
+    border-radius: 8px;
+    padding: 10px;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    border: 1px solid rgba(59, 130, 246, 0.08);
+}
+
+.date-range-calculator .result-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 6px 0;
+    border-bottom: 1px solid rgba(59, 130, 246, 0.1);
+}
+
+.date-range-calculator .result-item:last-child {
+    border-bottom: none;
+}
+
+.date-range-calculator .result-label {
+    font-size: 15px;
+    color: var(--text-secondary);
+    font-weight: 600;
+}
+
+.date-range-calculator .result-value {
+    font-size: 15px;
+    font-weight: 800;
+    color: var(--accent-strong);
+}
+
+/* ===== 打印专用区域 ===== */
+.print-section {
+    display: none;
+}
+
+.print-title {
+    text-align: center;
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--primary-color);
+    margin-bottom: 30px;
+    padding-bottom: 10px;
+    border-bottom: 3px double #333;
+}
+
+.print-stats {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+    margin-bottom: 15px;
+}
+
+.print-stat {
+    background: #f8f9fa;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    padding: 10px;
+    text-align: center;
+}
+
+.print-stat-label {
+    display: block;
+    font-size: 12px;
+    color: #666;
+    margin-bottom: 5px;
+}
+
+.print-stat-value {
+    display: block;
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--primary-color);
+}
+
+/* ===== 打印样式（A4竖版） ===== */
+@media print {
+    @page {
+        size: A4 portrait;
+        margin: 15mm;
+    }
+
+    * {
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+    }
+
+    body {
+        background: white !important;
+        padding: 0 !important;
+        color: black !important;
+        font-size: 12pt;
+    }
+
+    .container {
+        width: 100% !important;
+        max-width: 100% !important;
+        padding: 0 !important;
+        margin: 0 !important;
+    }
+
+    /* 隐藏非打印元素 */
+    .history-header,
+    .chart-calculator-layout,
+    .history-toolbar,
+    .print-btn,
+    .admin-link {
+        display: none !important;
+    }
+
+    /* 显示打印区域 */
+    .print-section {
+        display: block !important;
+    }
+
+    /* 历史表格打印样式，强制保持原始双列并排布局 */
+    .history-table-layout {
+        display: flex !important;
+        flex-direction: row !important;
+        flex-wrap: nowrap !important;
+        width: 100% !important;
+        gap: 2px;
+    }
+
+    .history-table-column {
+        flex: 1 1 50% !important;
+        min-width: 0 !important;
+        max-width: 50% !important;
+        width: 50% !important;
+        background: white;
+        border: 1px solid #999;
+        box-shadow: none;
+        border-radius: 0;
+        overflow: visible;
+    }
+
+    .history-table-column .history-table {
+        min-width: auto;
+        width: 100% !important;
+        table-layout: fixed !important;
+    }
+
+    .history-table {
+        font-size: 7px;
+    }
+
+    .history-table .col-price-range {
+        display: none !important;
+    }
+
+    .history-table th,
+    .history-table td {
+        width: 33.333%;
+        padding: 2px 3px;
+        border-color: #bbb;
+        white-space: normal;
+        word-break: break-all;
+    }
+
+    .history-table th {
+        background: #f0f0f0 !important;
+    }
+
+    .history-table tr.row-up {
+        background: rgba(39, 174, 96, 0.12) !important;
+    }
+
+    .history-table tr.row-down {
+        background: rgba(231, 76, 60, 0.12) !important;
+    }
+
+    .history-table tr.row-neutral {
+        background: rgba(149, 165, 166, 0.08) !important;
+    }
+
+    .history-section {
+        box-shadow: none !important;
+        border: 1px solid #ddd !important;
+        page-break-inside: avoid;
+    }
+
+    a {
+        color: black !important;
+        text-decoration: none !important;
+    }
+
+    /* 避免表格跨页断开 */
+    table {
+        page-break-inside: avoid;
+    }
+
+    tr {
+        page-break-inside: avoid;
+        page-break-after: auto;
+    }
+}
+
+/* ===== 浮动按钮和链接 ===== */
+.print-btn {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    background: linear-gradient(135deg, var(--accent-color) 0%, #06b6d4 100%);
+    color: white;
+    border: none;
+    border-radius: 50px;
+    padding: 12px 20px;
+    font-weight: 600;
+    font-size: 14px;
+    box-shadow: 0 4px 16px rgba(37, 99, 235, 0.4);
+    cursor: pointer;
+    z-index: 1000;
+    transition: all 0.3s;
+}
+
+.print-btn:hover {
+    background: linear-gradient(135deg, #1d4ed8 0%, #0891b2 100%);
+    box-shadow: 0 6px 20px rgba(37, 99, 235, 0.5);
+    transform: scale(1.05);
+}
+
+.admin-link {
+    position: fixed;
+    bottom: 20px;
+    left: 20px;
+    color: var(--accent-color);
+    text-decoration: none;
+    font-size: 13px;
+    font-weight: 600;
+    transition: all 0.3s;
+}
+
+.admin-link:hover {
+    color: #06b6d4;
+    text-shadow: 0 0 8px rgba(6, 182, 212, 0.4);
+}
+
+/* ===== 响应式设计 ===== */
+
+/* 平板和移动端 (≤768px) */
+@media (max-width: 768px) {
+    /* 产品标签、走势图布局、历史表工具栏等移动端规则统一由 price-mobile.css 提供（加载在后，优先级更高） */
+    /* 此处仅保留 price-mobile.css 未覆盖的项 */
+    .history-section {
+        padding: 15px;
+    }
+
+    .history-table {
+        font-size: 12px;
+    }
+
+    .history-table th,
+    .history-table td {
+        padding: 8px 10px;
+    }
+}
+
+/* 小屏幕手机 (≤480px) */
+@media (max-width: 480px) {
+    .history-table {
+        font-size: 11px;
+    }
+
+    .history-table th,
+    .history-table td {
+        padding: 6px 8px;
+    }
+
+    .stat-value {
+        font-size: 15px;
+    }
+}

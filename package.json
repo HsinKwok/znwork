@@ -1,0 +1,25 @@
+{
+  "name": "znwork-price-system",
+  "version": "1.0.0",
+  "description": "有色金属报价查询系统 - Cloudflare Worker + D1",
+  "main": "price-worker.js",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy --env=\"\"",
+    "db:create": "wrangler d1 create znwork-price-db",
+    "db:execute": "wrangler d1 execute znwork-price-db --file=price-schema.sql",
+    "db:console": "wrangler d1 execute znwork-price-db --command='.tables'"
+  },
+  "keywords": [
+    "cloudflare",
+    "worker",
+    "d1",
+    "price",
+    "metal"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "wrangler": "^4.131.1"
+  }
+}
