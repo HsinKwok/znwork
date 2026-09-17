@@ -166,58 +166,116 @@ npm run dev
 
 ## API 接口
 
-除后台管理与推送触发外，查询类接口均为公开访问，无需鉴权。
+查询类接口对外公开，无需鉴权；其余接口需在请求头携带 `Authorization: Bearer <登录返回的 token>`。
+
+### 公开接口
 
 | 接口 | 方法 | 说明 |
 | --- | --- | --- |
-| `/api/price/latest?product=<code>` | GET | 最新报价 |
-| `/api/price/history?product=<code>&days=<n>` | GET | 历史报价 |
-| `/api/price/monthly?product=<code>&month=<YYYY-MM>` | GET | 月均价 |
+| `/api/price/latest` | GET | 最新报价 |
+| `/api/price/history` | GET | 历史报价 |
+| `/api/price/monthly` | GET | 月均价 |
 | `/api/price/products` | GET | 产品列表 |
 | `/api/price/last-update` | GET | 最后更新时间 |
 | `/api/price/settings` | GET | 前台公开设置 |
-| `/api/price/admin/login` | POST | 管理员登录，返回 JWT |
-| `/api/price/admin/setup` | POST | 首次创建管理员（仅管理员表为空时可用） |
-| `/api/price/manual` | POST | 手工补录数据（Bearer Token） |
-| `/api/price/webhook` | POST | 外部系统推送报价 |
-| `/api/price/push/<id>?key=<push_key>` | GET | 触发微信推送 |
+
+### 独立密钥接口
+
+| 接口 | 方法 | 鉴权方式 | 说明 |
+| --- | --- | --- | --- |
+| `/api/price/webhook/<配置ID>` | POST | Webhook 密钥 | 外部系统推送报价 |
+| `/api/price/push/<配置ID>` | GET | URL 参数 `key` | 触发微信推送 |
+
+### 后台接口
+
+| 接口 | 方法 | 说明 |
+| --- | --- | --- |
+| `/api/price/admin/login` | POST | 管理员登录，下发 Token |
+| `/api/price/admin/setup` | POST | 首次创建管理员（仅 `admin_users` 为空时可用） |
+| `/api/price/manual` | POST | 手工补录数据 |
+| `/api/price/webhooks`、`/api/price/webhooks/<id>` | GET / POST / PUT / DELETE | Webhook 配置管理 |
+| `/api/price/admin/push`、`/api/price/admin/push/<id>` | GET / POST / PUT / DELETE | 推送配置管理 |
+| `/api/price/admin/settings` | GET / PUT | 系统设置 |
+| `/api/price/admin/users`、`/api/price/admin/users/<id>` | GET / POST / PUT / DELETE | 管理员账号管理 |
+| `/api/price/admin/products`、`/api/price/admin/products/<id>` | GET / POST / PUT / DELETE | 产品管理 |
+| `/api/price/admin/records/<id>`、`/api/price/admin/records/batch` | GET / PUT / DELETE | 报价记录管理 |
+| `/api/price/admin/stats`、`/api/price/admin/recent` | GET | 统计与最近记录 |
+| `/api/price/admin/cron` 及其子路径 | GET / POST / PUT / DELETE | 定时任务管理 |
+
+> 注意 `/api/price/manual` 与 `/api/price/webhook` 名称相近，但鉴权完全不同：前者用管理员 Token，后者用该 Webhook 配置自己的密钥。
+
+### 查询参数
+
+| 接口 | 参数 | 默认值 | 说明 |
+| --- | --- | --- | --- |
+| `latest` | `product` | `zinc0` | 产品代码 |
+| | `limit` | `1` | 返回条数，1–100 |
+| `history` | `product` | `zinc0` | 产品代码 |
+| | `days` | `30` | 回溯天数，1–3650 |
+| `monthly` | `product` | `zinc0` | 产品代码 |
+| | `month` | 当前北京时间月份 | `YYYY-MM`，取**该月及更早**的数据（截止月份，非精确匹配） |
+| | `limit` | `12` | 返回条数，1–60 |
+
+### 响应体
+
+| 接口 | 响应 |
+| --- | --- |
+| `latest` | `{ "prices": [...] }` |
+| `history` | `{ "history": [...] }` |
+| `monthly` | `{ "monthly": [...] }` |
+| `products` | `{ "products": [...], "homepage_product": "..." }` |
+| `last-update` | `{ "last_update": "...", "last_trade_date": "..." }` |
+| `settings` | `{ "settings": { "frontend_title": ..., "data_source_name": ..., "data_source_url": ... } }` |
+| `admin/login` | `{ "success": true, "token": "...", "user": { "id": 1, "username": "..." } }` |
+
+> 登录返回的 `token` 是 `base64url(payload).HMAC-SHA256签名` 的两段式自定义令牌（非标准三段式 JWT），
+> 由 `system_settings.jwt_secret` 签名，需以 `Authorization: Bearer <token>` 形式携带。
 
 ### 获取最新报价
 
 ```bash
-curl "https://<your-domain>/api/price/latest?product=zinc0"
+curl "https://<your-domain>/api/price/latest?product=zinc0&limit=1"
 ```
 
 ```json
 {
   "prices": [
     {
+      "id": 1,
       "product_code": "zinc0",
       "product_name": "0#锌锭",
       "unit": "元/吨",
       "trade_date": "2026-08-28",
-      "low_price": 26500.00,
-      "high_price": 26900.00,
-      "avg_price": 26700.00,
-      "change_value": 100.00,
+      "low_price": 26500,
+      "high_price": 26900,
+      "avg_price": 26700,
+      "change_value": 100,
       "change_percent": 0.38,
+      "source": "api",
+      "remark": null,
       "monthly_avg": 26395.71
     }
   ]
 }
 ```
 
+> 上例仅示意字段结构，数值非真实数据。`change_percent` 与 `monthly_avg` 均由 SQL 实时计算。
+
 ### Webhook 接收接口（外部系统推送报价）
 
-- **URL**: `POST /api/price/webhook`（或 `POST /api/price/webhook/<配置ID>`）
-- **认证**: 按后台 Webhook 配置的 `auth_type` 校验，默认读取请求头 `X-Webhook-Key`
-  （也可配置为查询参数或不校验）
-- **功能**: 接收采集器 / ERP 推送的报价数据，字段路径可在后台逐项映射
+- **URL**: `POST /api/price/webhook/<配置ID>`，也支持 `POST /api/price/webhook?id=<配置ID>`
+- **配置 ID 必填**: 缺失或无效时返回 400「无效的 webhook 配置 ID」，不能裸调 `/api/price/webhook`
+- **认证**: 按后台该配置的 `auth_type` 校验
+  - `header`（默认）— 从指定请求头读取密钥
+  - `query` — 从指定查询参数读取密钥
+  - `none` — 不校验
+  头名 / 参数名由 `auth_header_name` 决定，其默认值为 `X-Webhook-Key`
+- **功能**: 接收采集器 / ERP 推送的报价数据，字段路径可在后台逐项映射；单条或数组（`data_array_field`）均可
 
 ### 推送触发接口（向微信 Webhook 播报）
 
-- **URL**: `GET /api/price/push/<推送配置ID>?key=<push_key>`
-- **认证**: URL 参数密钥（在后台推送配置中生成）
+- **URL**: `GET /api/price/push/<配置ID>?key=<push_key>`
+- **认证**: URL 参数 `key`，值为后台推送配置中生成的 `push_key`
 - **功能**: 触发后按配置的产品与消息模板推送最新报价，可交由定时任务周期调用
 
 ## 数据模型
@@ -236,7 +294,7 @@ curl "https://<your-domain>/api/price/latest?product=zinc0"
 - `trade_date` / `collect_date`: 交易日期 / 采集日期
 - `low_price` / `high_price`: 最低价 / 最高价
 - `avg_price`: 日均价（自动计算 `(low+high)/2`）
-- `change_value` / `change_percent`: 涨跌值 / 涨跌幅
+- `change_value` / `change_percent`: 涨跌值 / 涨跌幅（均为表内列；公开接口返回的 `change_percent` 是 SQL 实时计算值，并不直接读取该列）
 - `source`: 数据来源（`api` / `manual` / `webhook`）
 
 > `UNIQUE(product_id, trade_date)` 保证同一产品同一交易日只有一条记录。
@@ -278,7 +336,7 @@ curl "https://<your-domain>/api/price/latest?product=zinc0"
 
 ## 注意事项
 
-1. **密钥安全**: 确保 Webhook 密钥（`webhook_key`）、推送密钥（`push_key`）与管理员 JWT Token 保密，并定期更换
+1. **密钥安全**: 确保 Webhook 密钥（`webhook_key`）、推送密钥（`push_key`）与管理员登录 Token 保密，并定期更换
 2. **移动端测试**: 建议在不同设备上测试响应式效果
 3. **打印功能**: 前台页面支持打印格式化数据
 4. **数据备份**: 定期备份 D1 数据库数据
