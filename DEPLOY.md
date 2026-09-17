@@ -65,18 +65,18 @@ npx wrangler d1 execute znwork-price-db --local --file=price-schema.sql
 npx wrangler deploy
 ```
 
-### 7. 配置定时任务触发器（使用后台定时任务时必填）
+### 7. 定时任务触发器
 
-Worker 的定时任务由 Cloudflare Cron Triggers 驱动，任务调度按**分钟**粒度匹配北京时间，
-因此需要在 `wrangler.toml` 中配置触发器后重新部署：
+Worker 的定时任务由 Cloudflare Cron Triggers 驱动，任务调度按**分钟**粒度匹配北京时间。
+`wrangler.toml` 中已内置如下配置，无需额外修改：
 
 ```toml
 [triggers]
 crons = ["* * * * *"]
 ```
 
-配置生效后，后台「定时任务」中维护的 cron 表达式才会被真正执行；
-「心跳」时间（`last_heartbeat_at`）也会随之更新。若缺少该配置，任务不会触发。
+`wrangler deploy` 生效后，后台「定时任务」中维护的 cron 表达式才会被真正执行；
+「心跳」时间（`last_heartbeat_at`）也会随之更新。若删除该配置，任务不会触发。
 免费计划下 Cron Triggers 的最小间隔为 1 分钟。
 
 ### 8. 配置访问地址（可选）

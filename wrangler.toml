@@ -22,6 +22,11 @@ WORKER_URL = "https://example.com"
 # pattern = "example.com/*"
 # zone_name = "example.com"
 
+# 定时任务触发器：price-worker.js 的 scheduled() 由此驱动。
+# 后台「定时任务」按北京时间、分钟粒度匹配，因此这里需每分钟触发一次。
+[triggers]
+crons = ["* * * * *"]
+
 # 本地开发配置
 [dev]
 port = 8787
