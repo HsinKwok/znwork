@@ -50,7 +50,6 @@
 │   ├── price-mobile.css     # 移动端适配样式
 │   ├── price-admin.css      # 后台样式
 │   └── assets/              # bootstrap / font-awesome / chart.js 等本地依赖
-├── DEPLOY.md                # 详细部署指南（API、数据模型、故障排除）
 └── README.md
 ```
 
@@ -163,10 +162,6 @@ npm run dev
 - 登录失败限流记录落库（D1），跨 isolate 与冷启动生效
 - Webhook 与推送使用独立密钥鉴权，不复用管理员凭据
 - `.dev.vars`、`node_modules/`、`.wrangler/` 已加入 `.gitignore`，请勿提交
-
-## 详细文档
-
-API 接口、数据模型、故障排除等内容见 [DEPLOY.md](DEPLOY.md)。
 
 ## 许可
 
