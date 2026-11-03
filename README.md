@@ -43,7 +43,10 @@
 ├── package.json
 ├── public/                  # 静态资源（直接托管）
 │   ├── price-frontend.html  # 前台页面
+│   ├── price-frontend.js    # 前台交互脚本（按年份懒加载历史数据）
 │   ├── price-admin.html     # 后台页面
+│   ├── price-admin.js       # 后台核心脚本
+│   ├── price-admin-cron.js  # 后台定时任务脚本
 │   ├── shared.js            # 前后台共用脚本
 │   ├── base.css
 │   ├── price-styles.css     # 基础布局样式
@@ -105,15 +108,17 @@ npm run deploy
 ### 6. 定时任务触发器（已内置）
 
 `price-worker.js` 的 `scheduled()` 入口由 **Cloudflare Cron Triggers** 驱动，
-[wrangler.toml](wrangler.toml) 中已配置每分钟触发一次：
+[wrangler.toml](wrangler.toml) 中已配置每 5 分钟触发一次：
 
 ```toml
 [triggers]
-crons = ["* * * * *"]
+crons = ["*/5 * * * *"]
 ```
 
-> 后台「定时任务」中配置的 cron 表达式按北京时间、分钟粒度解析，实际是否执行取决于上面的触发频率。
-> 若删除该配置，后台任务的「心跳」会一直为空，任务不会被执行。
+> **分钟数约束**：触发器每 5 分钟运行一次，因此后台任务的分钟字段必须是 5 的倍数（`0/5/10/…/55`）。
+> 例如 `35 10 * * *`（北京时间 10:35）有效，`33 10 * * *` 永远不会被执行。
+> 后台任务的 cron 表达式按北京时间、分钟粒度解析，实际是否执行取决于上面的触发频率。
+> 若删除该触发器配置，后台任务的「心跳」会一直为空，任务不会被执行。
 > 免费计划下 Cron Triggers 的最小间隔为 1 分钟。
 
 ### 7. 配置访问地址与域名（可选）
@@ -173,7 +178,8 @@ npm run dev
 | 接口 | 方法 | 说明 |
 | --- | --- | --- |
 | `/api/price/latest` | GET | 最新报价 |
-| `/api/price/history` | GET | 历史报价 |
+| `/api/price/history` | GET | 历史报价（支持按 `days` 或 `year` 查询） |
+| `/api/price/range` | GET | 日期区间均价统计 |
 | `/api/price/monthly` | GET | 月均价 |
 | `/api/price/products` | GET | 产品列表 |
 | `/api/price/last-update` | GET | 最后更新时间 |
@@ -211,7 +217,11 @@ npm run dev
 | `latest` | `product` | `zinc0` | 产品代码 |
 | | `limit` | `1` | 返回条数，1–100 |
 | `history` | `product` | `zinc0` | 产品代码 |
-| | `days` | `30` | 回溯天数，1–3650 |
+| | `days` | `30` | 回溯天数，1–3650（与 `year` 二选一） |
+| | `year` | - | `YYYY`，查询指定自然年，用于前台按年份懒加载 |
+| `range` | `product` | `zinc0` | 产品代码 |
+| | `start` | - | 开始日期 `YYYY-MM-DD` |
+| | `end` | - | 结束日期 `YYYY-MM-DD` |
 | `monthly` | `product` | `zinc0` | 产品代码 |
 | | `month` | 当前北京时间月份 | `YYYY-MM`，取**该月及更早**的数据（截止月份，非精确匹配） |
 | | `limit` | `12` | 返回条数，1–60 |
@@ -222,8 +232,9 @@ npm run dev
 | --- | --- |
 | `latest` | `{ "prices": [...] }` |
 | `history` | `{ "history": [...] }` |
+| `range` | `{ "count": 20, "avg_price": 26400.5, "high_price": 26800, "low_price": 26000 }` |
 | `monthly` | `{ "monthly": [...] }` |
-| `products` | `{ "products": [...], "homepage_product": "..." }` |
+| `products` | `{ "products": [...], "homepage_product": "..." }`（每个产品含 `years` 可用年份数组） |
 | `last-update` | `{ "last_update": "...", "last_trade_date": "..." }` |
 | `settings` | `{ "settings": { "frontend_title": ..., "data_source_name": ..., "data_source_url": ... } }` |
 | `admin/login` | `{ "success": true, "token": "...", "user": { "id": 1, "username": "..." } }` |

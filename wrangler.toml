@@ -13,7 +13,7 @@ database_id = "<YOUR_D1_DATABASE_ID>"
 # 请部署后通过管理后台配置。[vars] 中仅存放非敏感的运行参数。
 [vars]
 # 本 Worker 对外的公开访问地址，用于生成推送卡片中的链接等。
-# 不配置时回退为占位域名 https://example.com，请改成自己的实际域名。
+# 请改成自己的实际域名，例如 https://your-domain.com。
 WORKER_URL = "https://example.com"
 
 # 自定义域名与路由（可选）：改成自己的域名后取消注释，
@@ -23,9 +23,9 @@ WORKER_URL = "https://example.com"
 # zone_name = "example.com"
 
 # 定时任务触发器：price-worker.js 的 scheduled() 由此驱动。
-# 后台「定时任务」按北京时间、分钟粒度匹配，因此这里需每分钟触发一次。
+# 后台「定时任务」按北京时间解析 cron，实际是否执行取决于此处的触发频率。
 [triggers]
-crons = ["* * * * *"]
+crons = ["*/5 * * * *"]
 
 # 本地开发配置
 [dev]

@@ -52,8 +52,20 @@ async function handlePriceApi(request, env, ctx) {
     return handleOptions();
   }
   
-  // 部署兜底迁移：确保报价表/Webhook 配置表已包含 collect_date 相关列
-  await ensurePriceSchema(env);
+  // 仅公开只读接口不需要 collect_date 等新增列，跳过迁移检查，
+  // 避免首屏请求额外承担多次 DDL 往返；写接口与定时任务仍会执行迁移。
+  const schemaSkippedPaths = [
+    '/api/price/settings',
+    '/api/price/products',
+    '/api/price/latest',
+    '/api/price/history',
+    '/api/price/range',
+    '/api/price/monthly',
+    '/api/price/last-update'
+  ];
+  if (!schemaSkippedPaths.includes(path)) {
+    await ensurePriceSchema(env);
+  }
   
   // Webhook 接收接口：使用独立密钥鉴权，不走 admin 鉴权
   // 使用精确匹配避免误匹配 /api/price/webhooks（配置管理）路径
@@ -82,7 +94,7 @@ async function handlePriceApi(request, env, ctx) {
   }
 
   // 认证检查（除公开查询、webhook、公开设置、登录、外部采集外）
-  const publicPaths = ['/api/price/products', '/api/price/latest', '/api/price/history', '/api/price/monthly', '/api/price/last-update'];
+  const publicPaths = ['/api/price/products', '/api/price/latest', '/api/price/history', '/api/price/range', '/api/price/monthly', '/api/price/last-update'];
   if (!publicPaths.includes(path) && !await checkAuth(request, env)) {
     return jsonResponse({ error: '未授权访问' }, 401);
   }
@@ -97,6 +109,9 @@ async function handlePriceApi(request, env, ctx) {
 
     case path === '/api/price/history':
       return handleGetPriceHistory(env, url);
+
+    case path === '/api/price/range':
+      return handleGetPriceRange(env, url);
 
     case path === '/api/price/monthly':
       return handleGetMonthlyAverages(env, url);
@@ -181,12 +196,15 @@ async function handlePriceApi(request, env, ctx) {
 async function handleGetPublicSettings(env) {
   try {
     const keys = ['frontend_title', 'data_source_name', 'data_source_url'];
+    // 一次查询取回全部设置，避免逐项查询带来的多次数据库往返
+    const { results } = await env.DB.prepare(
+      'SELECT key, value FROM system_settings WHERE key IN (?, ?, ?)'
+    ).bind(...keys).all();
+
     const settings = {};
-    
-    for (const key of keys) {
-      settings[key] = await getSetting(key, env);
-    }
-    
+    keys.forEach(key => { settings[key] = null; });
+    (results || []).forEach(row => { settings[row.key] = row.value; });
+
     return jsonResponse({ settings }, 200, true);
   } catch (error) {
     return serverError('获取设置失败', error, true);
@@ -631,30 +649,30 @@ async function handleAdminStats(env) {
     // 按中国时区（UTC+8）计算当前月份
     const currentMonth = chinaMonth();
 
-    // 总记录数
-    const totalResult = await env.DB.prepare(
-      'SELECT COUNT(*) as count FROM daily_prices'
-    ).first();
-    
-    // 本月更新数
-    const monthlyResult = await env.DB.prepare(`
-      SELECT COUNT(*) as count FROM daily_prices 
-      WHERE strftime('%Y-%m', trade_date) = ?
-    `).bind(currentMonth).first();
-    
-    // 最近30天 webhook 采集成功率（口径：success + partial 计入成功；按中国时区）
-    const webhookResult = await env.DB.prepare(`
-      SELECT
-        SUM(CASE WHEN status IN ('success', 'partial') THEN 1 ELSE 0 END) as success_count,
-        COUNT(*) as total_count
-      FROM webhook_logs
-      WHERE created_at >= datetime('now', '-30 days')
-    `).first();
-
-    // 最后更新时间
-    const lastUpdateResult = await env.DB.prepare(`
-      SELECT MAX(updated_at) as last_update FROM daily_prices
-    `).first();
+    // 四个统计互不依赖：并行查询，减少后台看板的等待时间
+    const [totalResult, monthlyResult, webhookResult, lastUpdateResult] = await Promise.all([
+      // 总记录数
+      env.DB.prepare(
+        'SELECT COUNT(*) as count FROM daily_prices'
+      ).first(),
+      // 本月更新数
+      env.DB.prepare(`
+        SELECT COUNT(*) as count FROM daily_prices 
+        WHERE strftime('%Y-%m', trade_date) = ?
+      `).bind(currentMonth).first(),
+      // 最近30天 webhook 采集成功率（口径：success + partial 计入成功；按中国时区）
+      env.DB.prepare(`
+        SELECT
+          SUM(CASE WHEN status IN ('success', 'partial') THEN 1 ELSE 0 END) as success_count,
+          COUNT(*) as total_count
+        FROM webhook_logs
+        WHERE created_at >= datetime('now', '-30 days')
+      `).first(),
+      // 最后更新时间
+      env.DB.prepare(`
+        SELECT MAX(updated_at) as last_update FROM daily_prices
+      `).first()
+    ]);
 
     const successCount = webhookResult ? webhookResult.success_count || 0 : 0;
     const totalCount = webhookResult ? webhookResult.total_count || 0 : 0;
@@ -680,27 +698,30 @@ async function handleAdminRecent(request, env) {
     const pageSize = clampInt(parseInt(url.searchParams.get('pageSize')) || parseInt(url.searchParams.get('limit')) || 20, 1, 100);
     const offset = (page - 1) * pageSize;
     
-    const countResult = await env.DB.prepare(`
-      SELECT COUNT(*) as total FROM daily_prices
-    `).first();
+    // 总数与列表互不依赖：并行查询
+    const [countResult, listResult] = await Promise.all([
+      env.DB.prepare(`
+        SELECT COUNT(*) as total FROM daily_prices
+      `).first(),
+      env.DB.prepare(`
+        SELECT 
+          d.id,
+          p.name as product_name,
+          d.trade_date,
+          d.collect_date,
+          d.low_price,
+          d.high_price,
+          d.avg_price,
+          d.change_value,
+          d.source,
+          m.avg_price as monthly_avg
+        ${MONTHLY_AVG_JOIN}
+        ORDER BY d.trade_date DESC, d.id DESC
+        LIMIT ? OFFSET ?
+      `).bind(pageSize, offset).all()
+    ]);
     const total = countResult ? countResult.total : 0;
-    
-    const { results } = await env.DB.prepare(`
-      SELECT 
-        d.id,
-        p.name as product_name,
-        d.trade_date,
-        d.collect_date,
-        d.low_price,
-        d.high_price,
-        d.avg_price,
-        d.change_value,
-        d.source,
-        m.avg_price as monthly_avg
-      ${MONTHLY_AVG_JOIN}
-      ORDER BY d.trade_date DESC, d.id DESC
-      LIMIT ? OFFSET ?
-    `).bind(pageSize, offset).all();
+    const results = listResult.results;
     
     return jsonResponse({
       records: results,
@@ -956,21 +977,36 @@ async function updateMonthlyAverage(productId, tradeDate, env) {
 // 获取产品列表
 async function handleGetProducts(env) {
   try {
-    const { results } = await env.DB.prepare(`
-      SELECT 
-        p.id, p.code, p.name, p.unit, p.spec, p.sort_order,
-        COUNT(d.id) as record_count,
-        MAX(d.trade_date) as latest_trade_date
-      FROM products p
-      LEFT JOIN daily_prices d ON p.id = d.product_id
-      WHERE p.is_active = 1
-      GROUP BY p.id
-      ORDER BY p.sort_order
-    `).all();
+    // 一次查询同时返回记录数、最新日期与可用年份，前端无需再拉取全量历史提取年份
+    const [{ results }, homepageProduct] = await Promise.all([
+      env.DB.prepare(`
+        SELECT 
+          p.id, p.code, p.name, p.unit, p.spec, p.sort_order,
+          COUNT(d.id) as record_count,
+          MAX(d.trade_date) as latest_trade_date,
+          GROUP_CONCAT(DISTINCT substr(d.trade_date, 1, 4)) as years
+        FROM products p
+        LEFT JOIN daily_prices d ON p.id = d.product_id
+        WHERE p.is_active = 1
+        GROUP BY p.id
+        ORDER BY p.sort_order
+      `).all(),
+      getSetting('homepage_product', env)
+    ]);
+
+    // 年份降序数组，供前台按年份懒加载历史数据
+    const products = results.map(product => {
+      const years = product.years
+        ? String(product.years)
+            .split(',')
+            .map(v => parseInt(v, 10))
+            .filter(v => !isNaN(v))
+            .sort((a, b) => b - a)
+        : [];
+      return Object.assign({}, product, { years });
+    });
     
-    const homepageProduct = await getSetting('homepage_product', env);
-    
-    return jsonResponse({ products: results, homepage_product: homepageProduct || '' }, 200, true);
+    return jsonResponse({ products, homepage_product: homepageProduct || '' }, 200, true);
   } catch (error) {
     return serverError('数据库查询失败', error, true);
   }
@@ -1018,19 +1054,36 @@ async function handleGetLatestPrices(env, url) {
   }
 }
 
-// 获取历史价格
+// 获取历史价格（支持 days=最近N天 或 year=指定年份）
 async function handleGetPriceHistory(env, url) {
   try {
     const productCode = url.searchParams.get('product') || 'zinc0';
-    const days = clampInt(parseInt(url.searchParams.get('days')) || 30, 1, 3650);
+    const yearParam = url.searchParams.get('year');
+    let startDateStr;
+    let endDateStr;
 
-    // 按中国时区（UTC+8）计算开始日期和结束日期
-    const now = new Date(Date.now() + 8 * 60 * 60 * 1000);
-    const endDate = now.toISOString().split('T')[0];
-    const startDate = new Date(now.getTime());
-    startDate.setDate(startDate.getDate() - days);
-    const startDateStr = startDate.toISOString().split('T')[0];
-    
+    if (yearParam) {
+      // 按年份查询：前台切换年份时按需 AJAX 拉取，避免一次返回近十年数据
+      if (!/^\d{4}$/.test(yearParam)) {
+        return jsonResponse({ error: '年份参数格式应为 YYYY' }, 400, true);
+      }
+      const year = parseInt(yearParam, 10);
+      if (year < 1900 || year > 9999) {
+        return jsonResponse({ error: '年份参数超出有效范围' }, 400, true);
+      }
+      startDateStr = `${yearParam}-01-01`;
+      endDateStr = `${yearParam}-12-31`;
+    } else {
+      const days = clampInt(parseInt(url.searchParams.get('days')) || 30, 1, 3650);
+      // 按中国时区（UTC+8）计算开始日期和结束日期
+      const now = new Date(Date.now() + 8 * 60 * 60 * 1000);
+      endDateStr = now.toISOString().split('T')[0];
+      const startDate = new Date(now.getTime());
+      startDate.setDate(startDate.getDate() - days);
+      startDateStr = startDate.toISOString().split('T')[0];
+    }
+
+    // 保留 monthly_avg 字段以兼容既有 API 使用方
     const { results } = await env.DB.prepare(`
       SELECT 
         d.trade_date,
@@ -1045,11 +1098,48 @@ async function handleGetPriceHistory(env, url) {
       WHERE p.code = ? 
         AND d.trade_date BETWEEN ? AND ?
       ORDER BY d.trade_date DESC
-    `).bind(productCode, startDateStr, endDate).all();
+    `).bind(productCode, startDateStr, endDateStr).all();
     
     return jsonResponse({ history: results }, 200, true);
   } catch (error) {
     return serverError('获取历史价格失败', error, true);
+  }
+}
+
+// 区间均价统计：跨年份区间由服务端聚合，避免前端加载全部历史后本地过滤
+async function handleGetPriceRange(env, url) {
+  try {
+    const productCode = url.searchParams.get('product') || 'zinc0';
+    const startDate = url.searchParams.get('start');
+    const endDate = url.searchParams.get('end');
+
+    if (!isValidDate(startDate) || !isValidDate(endDate)) {
+      return jsonResponse({ error: '日期参数格式应为 YYYY-MM-DD' }, 400, true);
+    }
+    if (startDate > endDate) {
+      return jsonResponse({ error: '开始日期不能晚于结束日期' }, 400, true);
+    }
+
+    const row = await env.DB.prepare(`
+      SELECT
+        COUNT(d.avg_price) as count,
+        ROUND(AVG(d.avg_price), 2) as avg_price,
+        MAX(d.avg_price) as high_price,
+        MIN(d.avg_price) as low_price
+      FROM daily_prices d
+      JOIN products p ON d.product_id = p.id
+      WHERE p.code = ?
+        AND d.trade_date BETWEEN ? AND ?
+    `).bind(productCode, startDate, endDate).first();
+
+    return jsonResponse({
+      count: row ? row.count : 0,
+      avg_price: row ? row.avg_price : null,
+      high_price: row ? row.high_price : null,
+      low_price: row ? row.low_price : null
+    }, 200, true);
+  } catch (error) {
+    return serverError('区间均价计算失败', error, true);
   }
 }
 
@@ -2571,7 +2661,7 @@ function jsonResponse(data, status = 200, cors = false) {
   if (cors) {
     Object.assign(headers, CORS_HEADERS);
   }
-  return new Response(JSON.stringify(data, null, 2), { status, headers });
+  return new Response(JSON.stringify(data), { status, headers });
 }
 
 // 辅助函数：返回 500 服务器错误（details 携带原始异常信息，便于排查）
@@ -3078,6 +3168,9 @@ async function executeCronTask(job, env) {
 
 // 定时任务调度入口：由 scheduled() 调用，URL 驱动
 async function handleScheduledTask(event, env) {
+  // 兜底迁移：即使从未访问过后台/写接口，定时任务触发时也会补齐表结构
+  await ensurePriceSchema(env);
+
   // 先记录心跳时间戳（前置，即使后续 DB 查询失败也能检测到触发）
   await setSetting('last_heartbeat_at', new Date().toISOString(), '最近一次 Cron 心跳触发时间（UTC）', env);
 

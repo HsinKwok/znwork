@@ -34,3 +34,6 @@ logs/
 # Temporary files
 tmp/
 temp/
+
+# IDE / 工具生成物
+.trae-html-share-packages/
