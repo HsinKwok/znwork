@@ -4,16 +4,87 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title class="site-title">报价查询系统</title>
-    <link rel="stylesheet" href="/assets/css/bootstrap.min.css">
-    <link rel="stylesheet" href="/assets/css/bootstrap-theme.min.css">
-    <link rel="stylesheet" href="/assets/css/font-awesome.min.css">
-    <link rel="stylesheet" href="/base.css">
-    <link rel="stylesheet" href="/price-styles.css">
-    <link rel="stylesheet" href="/price-mobile.css">
+    <!-- 首屏关键样式：price-frontend.css 的可见区子集，避免样式表阻塞首屏渲染 -->
+    <style>
+        :root{--primary-color:#2c3e50;--secondary-color:#3498db;--success-color:#27ae60;--danger-color:#e74c3c;--warning-color:#f39c12;--light-bg:#f8f9fa;--border-color:#dee2e6;--text-secondary:#475569;--surface-muted:#e2e8f0;--accent-color:#2563eb;--accent-strong:#1e40af;--accent-deep:#1e3a8a;--focus-color:#3b82f6;--neutral-color:#95a5a6;--table-border:#e8eef2}
+        *,*::before,*::after{box-sizing:border-box}
+        body{margin:0;padding:15px 0 90px;font-family:'Segoe UI','Microsoft YaHei',sans-serif;font-size:14px;line-height:1.42857143;color:#333;background:linear-gradient(135deg,#f0f4f8 0%,#d9e2ec 100%);min-height:100vh}
+        .container{width:100%;max-width:1200px;margin:0 auto;padding:0 15px}
+        .history-section{background:#fff;border-radius:12px;padding:20px;border:1px solid rgba(59,130,246,.12)}
+        .history-header{display:flex;flex-direction:column;gap:15px;margin-bottom:18px;padding-bottom:15px;border-bottom:2px solid rgba(59,130,246,.1)}
+        .header-info h1{margin:0 0 8px;font-size:24px;font-weight:500;color:var(--accent-deep)}
+        .header-info .text-muted{margin:0;font-size:13px;color:var(--text-secondary)}
+        .product-tabs-container{display:flex;align-items:center}
+        .product-tabs{display:flex;gap:4px;padding:4px;background:var(--surface-muted);border-radius:10px}
+        .product-tab{padding:7px 14px;border-radius:8px;font-size:13px;font-weight:600;color:var(--text-secondary);white-space:nowrap;cursor:pointer}
+        .product-tab.active{background:#fff;color:var(--accent-color)}
+        .chart-calculator-layout{display:flex;gap:15px;margin-bottom:18px;align-items:stretch}
+        .chart-container{flex:1;min-width:0;display:flex;flex-direction:column;padding:10px;border:1px solid var(--border-color);border-radius:10px;background:#f8f9fa}
+        .chart-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+        .chart-header h4{margin:0;font-size:20px;font-weight:800;color:var(--primary-color)}
+        .chart-info span{font-size:11px;font-weight:700;color:var(--secondary-color)}
+        #chart-product-name{font-size:20px;font-weight:700;color:var(--secondary-color)}
+        .chart-period-tabs{display:flex;gap:4px;width:fit-content;margin-bottom:6px;padding:2px;background:rgba(255,255,255,.6);border-radius:6px}
+        .chart-period-tab{padding:4px 12px;border-radius:4px;font-size:12px;font-weight:600;color:var(--text-secondary);cursor:pointer}
+        .chart-period-tab.active{background:var(--secondary-color);color:#fff}
+        .chart-wrapper{position:relative;display:flex;flex:1;min-height:240px;max-height:300px}
+        .chart-wrapper canvas{flex:1;width:100%!important;height:100%!important}
+        .chart-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(95px,1fr));gap:6px;margin-top:8px}
+        .stat-item{padding:10px 6px;text-align:center;background:#fff;border:1px solid var(--border-color);border-top:3px solid var(--neutral-color);border-radius:6px}
+        .stat-item:nth-child(1){border-top-color:var(--danger-color)}
+        .stat-item:nth-child(2){border-top-color:var(--success-color)}
+        .stat-item:nth-child(3){border-top-color:var(--secondary-color)}
+        .stat-item:nth-child(4){border-top-color:var(--warning-color)}
+        .stat-label{margin-bottom:5px;font-size:12px;font-weight:700;color:var(--text-secondary)}
+        .stat-value{font-size:18px;font-weight:800;color:var(--primary-color)}
+        .date-range-calculator{display:flex;flex-direction:column;width:250px;flex-shrink:0;padding:10px;background:#fff;border:1px solid rgba(59,130,246,.12);border-radius:12px}
+        .date-range-calculator h4{margin:0 0 8px;padding:8px 10px;font-size:15px;font-weight:800;color:var(--accent-strong);background:#eff6ff;border:1px solid rgba(59,130,246,.2);border-radius:8px}
+        .date-range-calculator .calculator-form{display:flex;flex-direction:column;gap:6px;margin-bottom:8px}
+        .date-range-calculator .calculator-input{display:flex;flex-direction:column;gap:2px}
+        .date-range-calculator .calculator-input label{font-size:15px;font-weight:700;color:var(--accent-deep)}
+        .form-control{display:block;width:100%;height:34px;padding:0 10px;font-size:13px;color:#555;background:#fff;border:1px solid #ccc;border-radius:4px}
+        .date-range-calculator .form-control{border:2px solid rgba(59,130,246,.15);border-radius:6px;background:rgba(255,255,255,.8)}
+        .date-range-calculator .calculator-result{display:flex;flex-direction:column;justify-content:center;flex:1;padding:10px;background:#eff6ff;border:1px solid rgba(59,130,246,.08);border-radius:8px}
+        .date-range-calculator .result-item{display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid rgba(59,130,246,.1)}
+        .date-range-calculator .result-item:last-child{border-bottom:none}
+        .date-range-calculator .result-label{font-size:15px;font-weight:600;color:var(--text-secondary)}
+        .date-range-calculator .result-value{font-size:15px;font-weight:800;color:var(--accent-strong)}
+        .btn{display:inline-block;padding:6px 12px;font-size:13px;line-height:1.42857143;text-align:center;white-space:nowrap;vertical-align:middle;border:1px solid transparent;border-radius:4px;cursor:pointer}
+        .btn-primary{color:#fff;background-color:#337ab7;border-color:#2e6da4}
+        .btn-block{display:block;width:100%}
+        .date-range-calculator .btn-block{height:34px;padding:6px 8px;border-radius:6px}
+        .print-section{display:none}
+        .history-toolbar{display:flex;align-items:center;justify-content:space-between;flex-wrap:nowrap;gap:12px;margin:18px 0 10px;padding:12px;background:var(--surface-muted);border-radius:10px}
+        .year-selector{display:flex;align-items:center;gap:10px;flex-shrink:0}
+        .year-selector label{margin:0;font-size:14px;font-weight:600;color:var(--primary-color);white-space:nowrap}
+        .year-selector .form-control{display:inline-block;width:auto;min-width:110px;color:var(--text-secondary)}
+        .month-tabs{display:flex;flex-wrap:wrap;flex:1;justify-content:center;gap:6px}
+        .month-tab{min-width:50px;padding:6px 12px;font-size:13px;font-weight:600;text-align:center;color:var(--text-secondary);border-radius:6px;cursor:pointer}
+        .month-tab.active{background:#fff;color:var(--accent-color)}
+        .history-total{font-size:13px;font-weight:600;color:var(--text-secondary);white-space:nowrap;flex-shrink:0;text-align:right}
+        .history-table-layout{display:flex;gap:15px}
+        .history-table-column{flex:1;min-width:0;overflow-x:auto;background:#fff;border:1px solid var(--border-color);border-radius:8px}
+        .history-table{width:100%;min-width:320px;border-collapse:collapse;font-size:14px;background:#fff}
+        .history-table th{padding:10px 8px;text-align:center;font-weight:700;color:var(--primary-color);background:#f4f7f9;border-bottom:2px solid #d0d8dd;border-right:1px solid #e1e8ed;white-space:nowrap}
+        .history-table td{padding:8px 10px;text-align:center;white-space:nowrap;border-bottom:1px solid var(--table-border);border-right:1px solid var(--table-border)}
+        .history-table th:last-child,.history-table td:last-child{border-right:none}
+        .print-btn{position:fixed;right:20px;bottom:20px;z-index:1000;padding:12px 20px;font-size:14px;font-weight:600;color:#fff;background:var(--accent-color);border:none;border-radius:50px;cursor:pointer}
+        .admin-link{position:fixed;left:20px;bottom:20px;font-size:13px;font-weight:600;color:var(--accent-color);text-decoration:none}
+        @media (max-height:700px){.print-btn{position:static;display:block;margin:20px auto 0}.admin-link{position:static;display:block;width:fit-content;margin:12px auto 0}}
+        .icon-svg{width:1em;height:1em;margin-right:.3em;vertical-align:-.12em;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+        .text-center{text-align:center}
+        .text-muted{color:#777}
+        .text-success{color:var(--success-color)!important}
+        .text-danger{color:var(--danger-color)!important}
+        @media (max-width:768px){body{padding:10px 0 80px}.container{max-width:100%;padding:0 10px}.chart-calculator-layout{flex-direction:column;gap:12px}.date-range-calculator{width:100%}.history-toolbar{flex-wrap:wrap;gap:8px;padding:10px}.history-table-layout{flex-direction:column;gap:12px}.product-tabs{overflow-x:auto;flex-wrap:nowrap}}
+        @media (prefers-color-scheme:dark){body{background:linear-gradient(135deg,#1a1a2e 0%,#16213e 100%);color:#ecf0f1}.history-section,.stat-item,.date-range-calculator{background:#2c3e50;color:#ecf0f1}.chart-container{background:linear-gradient(135deg,#2c3e50 0%,#34495e 100%)}.history-table-column,.history-table{background:#2c3e50}.history-table td{color:#ecf0f1}.form-control{background:#34495e;border-color:#4a6572;color:#ecf0f1}}
+    </style>
+    <!-- 完整样式表异步加载：不阻塞首屏，加载完成后切换为普通样式表 -->
+    <link rel="preload" as="style" href="/price-frontend.css?v=5" onload="this.onload=null;this.rel='stylesheet'">
+    <noscript><link rel="stylesheet" href="/price-frontend.css?v=5"></noscript>
     <script src="/assets/js/jquery.min.js" defer></script>
-    <script src="/shared.js?v=2" defer></script>
-    <script src="/assets/js/chart.min.js" defer></script>
-    <script src="/price-frontend.js?v=2" defer></script>
+    <script src="/shared.js?v=3" defer></script>
+    <script src="/price-frontend.js?v=4" defer></script>
 </head>
 <body>
     <div class="container">
@@ -21,7 +92,7 @@
         <div class="history-section" id="history-section">
             <div class="history-header">
                 <div class="header-info">
-                    <h1><i class="fa fa-line-chart"></i> <span class="site-title">报价查询系统</span></h1>
+                    <h1><svg class="icon-svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3v18h18"/><path d="M6 15l4-5 3 3 5-7"/></svg> <span class="site-title">报价查询系统</span></h1>
                     <p class="text-muted">数据来源：<span class="data-source-name">数据源</span> • 最后更新：<span id="last-update">-</span></p>
                 </div>
                 <div class="product-tabs-container">
@@ -36,7 +107,7 @@
                 <!-- 价格走势图（左侧） -->
                 <div class="chart-container" id="price-chart-container">
                     <div class="chart-header">
-                        <h4><i class="fa fa-line-chart"></i> 价格走势图</h4>
+                        <h4><svg class="icon-svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3v18h18"/><path d="M6 15l4-5 3 3 5-7"/></svg> 价格走势图</h4>
                         <div class="chart-info">
                             <span id="chart-product-name">产品名称</span>
                         </div>
@@ -70,7 +141,7 @@
 
                 <!-- 日期区间平均价格计算器（右侧） -->
                 <div class="date-range-calculator" id="date-range-calculator">
-                    <h4><i class="fa fa-calendar"></i> 日期区间平均价格计算器</h4>
+                    <h4><svg class="icon-svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16v14H4z"/><path d="M4 10h16M8 3v4M16 3v4"/></svg> 日期区间平均价格计算器</h4>
                     <div class="calculator-form">
                         <div class="calculator-input">
                             <label for="range-start-date">开始日期</label>
@@ -81,7 +152,7 @@
                             <input type="date" id="range-end-date" class="form-control">
                         </div>
                         <button class="btn btn-primary btn-block" onclick="calculateDateRangeAverage()">
-                            <i class="fa fa-calculator"></i> 计算平均价
+                            <svg class="icon-svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 3h14v18H5z"/><path d="M8 7h8v4H8z"/><path d="M8 15h.01M12 15h.01M16 15h.01M8 18h.01M12 18h.01M16 18h.01"/></svg> 计算平均价
                         </button>
                     </div>
                     <div class="calculator-result" id="range-calc-result">
@@ -176,11 +247,11 @@
         </div>
 
         <button class="print-btn" onclick="printCurrentQuote()">
-            <i class="fa fa-print"></i> 打印当前报价
+            <svg class="icon-svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9V3h12v6"/><path d="M4 9h16a1 1 0 0 1 1 1v6h-3v4H6v-4H3v-6a1 1 0 0 1 1-1z"/><path d="M6 16h12"/></svg> 打印当前报价
         </button>
         
         <a href="price-admin.html" class="admin-link">
-            <i class="fa fa-cog"></i> 后台管理
+            <svg class="icon-svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/><circle cx="9" cy="6" r="2"/><circle cx="15" cy="12" r="2"/><circle cx="8" cy="18" r="2"/></svg> 后台管理
         </a>
     </div>
 </body>

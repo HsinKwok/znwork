@@ -1,0 +1,1301 @@
+/* 前台样式包（自动拼接）：bootstrap 精简版 + base + price-styles + price-mobile */
+/* 如需修改样式，请改对应源文件后重新拼接，勿直接编辑本文件 */
+
+/* ===== bootstrap 3（精简：仅保留前台用到的规则） ===== */
+html{font-family:sans-serif;-ms-text-size-adjust:100%;-webkit-text-size-adjust:100%}body{margin:0}article,aside,details,figcaption,figure,footer,header,hgroup,main,menu,nav,section,summary{display:block}a{background-color:transparent}a:active,a:hover{outline:0}abbr[title]{border-bottom:none;text-decoration:underline;-webkit-text-decoration:underline dotted;-moz-text-decoration:underline dotted;text-decoration:underline dotted}b,strong{font-weight:700}h1{font-size:2em;margin:.67em 0}mark{background:#ff0;color:#000}small{font-size:80%}sub,sup{font-size:75%;line-height:0;position:relative;vertical-align:baseline}sup{top:-.5em}sub{bottom:-.25em}img{border:0}figure{margin:1em 40px}hr{-webkit-box-sizing:content-box;-moz-box-sizing:content-box;box-sizing:content-box;height:0}pre{overflow:auto}code,kbd,pre,samp{font-family:monospace,monospace;font-size:1em}button,input,optgroup,select,textarea{color:inherit;font:inherit;margin:0}button{overflow:visible}button,select{text-transform:none}button,html input[type=button],input[type=reset],input[type=submit]{-webkit-appearance:button;cursor:pointer}button[disabled],html input[disabled]{cursor:default}button::-moz-focus-inner,input::-moz-focus-inner{border:0;padding:0}input{line-height:normal}input[type=checkbox],input[type=radio]{-webkit-box-sizing:border-box;-moz-box-sizing:border-box;box-sizing:border-box;padding:0}input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-spin-button{height:auto}input[type=search]{-webkit-appearance:textfield;-webkit-box-sizing:content-box;-moz-box-sizing:content-box;box-sizing:content-box}input[type=search]::-webkit-search-cancel-button,input[type=search]::-webkit-search-decoration{-webkit-appearance:none}fieldset{border:1px solid silver;margin:0 2px;padding:.35em .625em .75em}legend{border:0;padding:0}textarea{overflow:auto}table{border-collapse:collapse;border-spacing:0}td,th{padding:0}@media print{*,:after,:before{color:#000!important;text-shadow:none!important;background:0 0!important;-webkit-box-shadow:none!important;box-shadow:none!important}a,a:visited{text-decoration:underline}a[href]:after{content:" (" attr(href) ")"}abbr[title]:after{content:" (" attr(title) ")"}a[href^="#"]:after,a[href^="javascript:"]:after{content:""}blockquote,pre{border:1px solid #999;page-break-inside:avoid}thead{display:table-header-group}img,tr{page-break-inside:avoid}img{max-width:100%!important}h2,h3,p{orphans:3;widows:3}h2,h3{page-break-after:avoid}.table{border-collapse:collapse!important}.table td,.table th{background-color:#fff!important}.table-bordered td,.table-bordered th{border:1px solid #ddd!important}}*{-webkit-box-sizing:border-box;-moz-box-sizing:border-box;box-sizing:border-box}html{font-size:10px;-webkit-tap-highlight-color:rgba(0,0,0,0)}body{font-family:"Helvetica Neue",Helvetica,Arial,sans-serif;font-size:14px;line-height:1.42857143;color:#333;background-color:#fff}button,input,select,textarea{font-family:inherit;font-size:inherit;line-height:inherit}a{color:#337ab7;text-decoration:none}a:focus,a:hover{color:#23527c;text-decoration:underline}a:focus{outline:5px auto -webkit-focus-ring-color;outline-offset:-2px}figure{margin:0}img{vertical-align:middle}hr{margin-top:20px;margin-bottom:20px;border:0;border-top:1px solid #eee}.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);border:0}p{margin:0 0 10px}.text-left{text-align:left}.text-right{text-align:right}.text-center{text-align:center}.text-muted{color:#777}.text-success{color:#3c763d}a.text-success:focus,a.text-success:hover{color:#2b542c}.text-info{color:#31708f}a.text-info:focus,a.text-info:hover{color:#245269}.text-warning{color:#8a6d3b}a.text-warning:focus,a.text-warning:hover{color:#66512c}.text-danger{color:#a94442}a.text-danger:focus,a.text-danger:hover{color:#843534}ol,ul{margin-top:0;margin-bottom:10px}ol ol,ol ul,ul ol,ul ul{margin-bottom:0}dl{margin-top:0;margin-bottom:20px}dd,dt{line-height:1.42857143}dt{font-weight:700}dd{margin-left:0}abbr[data-original-title],abbr[title]{cursor:help}blockquote{padding:10px 20px;margin:0 0 20px;font-size:17.5px;border-left:5px solid #eee}blockquote ol:last-child,blockquote p:last-child,blockquote ul:last-child{margin-bottom:0}address{margin-bottom:20px;font-style:normal;line-height:1.42857143}code,kbd,pre,samp{font-family:Menlo,Monaco,Consolas,"Courier New",monospace}code{padding:2px 4px;font-size:90%;color:#c7254e;background-color:#f9f2f4;border-radius:4px}kbd{padding:2px 4px;font-size:90%;color:#fff;background-color:#333;border-radius:3px;-webkit-box-shadow:inset 0 -1px 0 rgba(0,0,0,.25);box-shadow:inset 0 -1px 0 rgba(0,0,0,.25)}kbd kbd{padding:0;font-size:100%;font-weight:700;-webkit-box-shadow:none;box-shadow:none}pre{display:block;padding:9.5px;margin:0 0 10px;font-size:13px;line-height:1.42857143;color:#333;word-break:break-all;word-wrap:break-word;background-color:#f5f5f5;border:1px solid #ccc;border-radius:4px}pre code{padding:0;font-size:inherit;color:inherit;white-space:pre-wrap;background-color:transparent;border-radius:0}.container{padding-right:15px;padding-left:15px;margin-right:auto;margin-left:auto}@media (min-width:768px){.container{width:750px}}@media (min-width:992px){.container{width:970px}}@media (min-width:1200px){.container{width:1170px}}table{background-color:transparent}table col[class*=col-]{position:static;display:table-column;float:none}table td[class*=col-],table th[class*=col-]{position:static;display:table-cell;float:none}caption{padding-top:8px;padding-bottom:8px;color:#777;text-align:left}th{text-align:left}.table{width:100%;max-width:100%;margin-bottom:20px}.table>tbody>tr>td,.table>tbody>tr>th,.table>tfoot>tr>td,.table>tfoot>tr>th,.table>thead>tr>td,.table>thead>tr>th{padding:8px;line-height:1.42857143;vertical-align:top;border-top:1px solid #ddd}.table>thead>tr>th{vertical-align:bottom;border-bottom:2px solid #ddd}.table>caption+thead>tr:first-child>td,.table>caption+thead>tr:first-child>th,.table>colgroup+thead>tr:first-child>td,.table>colgroup+thead>tr:first-child>th,.table>thead:first-child>tr:first-child>td,.table>thead:first-child>tr:first-child>th{border-top:0}.table>tbody+tbody{border-top:2px solid #ddd}.table .table{background-color:#fff}.table-bordered{border:1px solid #ddd}.table-bordered>tbody>tr>td,.table-bordered>tbody>tr>th,.table-bordered>tfoot>tr>td,.table-bordered>tfoot>tr>th,.table-bordered>thead>tr>td,.table-bordered>thead>tr>th{border:1px solid #ddd}.table-bordered>thead>tr>td,.table-bordered>thead>tr>th{border-bottom-width:2px}.table-striped>tbody>tr:nth-of-type(odd){background-color:#f9f9f9}.table-hover>tbody>tr:hover{background-color:#f5f5f5}fieldset{min-width:0;padding:0;margin:0;border:0}legend{display:block;width:100%;padding:0;margin-bottom:20px;font-size:21px;line-height:inherit;color:#333;border:0;border-bottom:1px solid #e5e5e5}label{display:inline-block;max-width:100%;margin-bottom:5px;font-weight:700}input[type=search]{-webkit-box-sizing:border-box;-moz-box-sizing:border-box;box-sizing:border-box;-webkit-appearance:none;-moz-appearance:none;appearance:none}input[type=checkbox],input[type=radio]{margin:4px 0 0;margin-top:1px\9;line-height:normal}input[type=file]{display:block}input[type=range]{display:block;width:100%}select[multiple],select[size]{height:auto}input[type=checkbox]:focus,input[type=file]:focus,input[type=radio]:focus{outline:5px auto -webkit-focus-ring-color;outline-offset:-2px}.form-control{display:block;width:100%;height:34px;padding:6px 12px;font-size:14px;line-height:1.42857143;color:#555;background-color:#fff;background-image:none;border:1px solid #ccc;border-radius:4px;-webkit-box-shadow:inset 0 1px 1px rgba(0,0,0,.075);box-shadow:inset 0 1px 1px rgba(0,0,0,.075);-webkit-transition:border-color ease-in-out .15s,box-shadow ease-in-out .15s;-o-transition:border-color ease-in-out .15s,box-shadow ease-in-out .15s;-webkit-transition:border-color ease-in-out .15s,-webkit-box-shadow ease-in-out .15s;transition:border-color ease-in-out .15s,-webkit-box-shadow ease-in-out .15s;transition:border-color ease-in-out .15s,box-shadow ease-in-out .15s;transition:border-color ease-in-out .15s,box-shadow ease-in-out .15s,-webkit-box-shadow ease-in-out .15s}.form-control:focus{border-color:#66afe9;outline:0;-webkit-box-shadow:inset 0 1px 1px rgba(0,0,0,.075),0 0 8px rgba(102,175,233,.6);box-shadow:inset 0 1px 1px rgba(0,0,0,.075),0 0 8px rgba(102,175,233,.6)}.form-control::-moz-placeholder{color:#999;opacity:1}.form-control:-ms-input-placeholder{color:#999}.form-control::-webkit-input-placeholder{color:#999}.form-control::-ms-expand{background-color:transparent;border:0}.form-control[disabled],.form-control[readonly],fieldset[disabled] .form-control{background-color:#eee;opacity:1}.form-control[disabled],fieldset[disabled] .form-control{cursor:not-allowed}textarea.form-control{height:auto}@media screen and (-webkit-min-device-pixel-ratio:0){input[type=date].form-control,input[type=datetime-local].form-control,input[type=month].form-control,input[type=time].form-control{line-height:34px}}.btn{display:inline-block;margin-bottom:0;font-weight:400;text-align:center;white-space:nowrap;vertical-align:middle;-ms-touch-action:manipulation;touch-action:manipulation;cursor:pointer;background-image:none;border:1px solid transparent;padding:6px 12px;font-size:14px;line-height:1.42857143;border-radius:4px;-webkit-user-select:none;-moz-user-select:none;-ms-user-select:none;user-select:none}.btn-default{color:#333;background-color:#fff;border-color:#ccc}.btn-default:hover{color:#333;background-color:#e6e6e6;border-color:#adadad}.btn-primary{color:#fff;background-color:#337ab7;border-color:#2e6da4}.btn-primary:hover{color:#fff;background-color:#286090;border-color:#204d74}.btn-block{display:block;width:100%}.btn-block+.btn-block{margin-top:5px}input[type=button].btn-block,input[type=reset].btn-block,input[type=submit].btn-block{width:100%}.center-block{display:block;margin-right:auto;margin-left:auto}.pull-right{float:right!important}.pull-left{float:left!important}.hidden{display:none!important}
+
+/* ===== base.css（前后台共用基础样式） ===== */
+/* 报价查询系统 - 前后台共用基础样式 */
+/* 需在各页面专属样式表之前引入 */
+
+/* ===== CSS变量定义 ===== */
+:root {
+    --primary-color: #2c3e50;
+    --secondary-color: #3498db;
+    --success-color: #27ae60;
+    --danger-color: #e74c3c;
+    --warning-color: #f39c12;
+    --light-bg: #f8f9fa;
+    --border-color: #dee2e6;
+
+    /* 报价页复用的语义色，供 price-styles.css / price-mobile.css 引用；
+       深色模式在 price-mobile.css 的 :root 中整体翻转，无需逐条覆盖 */
+    --text-secondary: #475569;
+    --surface-muted: #e2e8f0;
+    --accent-color: #2563eb;
+    --accent-strong: #1e40af;
+    --accent-deep: #1e3a8a;
+    --focus-color: #3b82f6;
+    --neutral-color: #95a5a6;
+    --table-border: #e8eef2;
+}
+
+/* ===== 基础样式 ===== */
+body {
+    font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif;
+    background:
+        radial-gradient(circle at 10% 20%, rgba(59, 130, 246, 0.06) 0%, transparent 25%),
+        radial-gradient(circle at 90% 80%, rgba(6, 182, 212, 0.06) 0%, transparent 25%),
+        linear-gradient(135deg, #f0f4f8 0%, #d9e2ec 100%);
+    min-height: 100vh;
+}
+
+/* 仅对文本类输入控件加内边距，避免误伤 checkbox / radio */
+input[type="text"],
+input[type="number"],
+input[type="password"],
+input[type="search"],
+input[type="email"],
+input[type="tel"],
+input[type="url"],
+input[type="date"],
+input[type="datetime-local"],
+select,
+textarea,
+.form-control {
+    padding: 0 10px;
+}
+
+
+/* ===== price-styles.css（前台布局与组件样式） ===== */
+/* 报价查询系统 - 主样式文件 */
+/* 包含组件样式和布局样式（CSS变量/输入控件内边距/body 基础见 base.css） */
+
+/* ===== 基础样式 ===== */
+body {
+    /* 底部预留浮动按钮的高度，避免页面滚到底时内容被遮挡 */
+    padding: 15px 0 90px;
+}
+
+.container {
+    width: 100%;
+    max-width: 1200px;
+    padding-left: 15px;
+    padding-right: 15px;
+}
+
+/* ===== 历史数据区域 ===== */
+.history-section {
+    background: rgba(255, 255, 255, 0.95);
+    border-radius: 12px;
+    padding: 20px;
+    border: 1px solid rgba(59, 130, 246, 0.12);
+    box-shadow: 0 8px 32px rgba(59, 130, 246, 0.1), 0 2px 8px rgba(0, 0, 0, 0.04);
+    backdrop-filter: blur(10px);
+}
+
+.history-header {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    margin-bottom: 18px;
+    padding-bottom: 15px;
+    border-bottom: 2px solid rgba(59, 130, 246, 0.1);
+}
+
+.header-info h1 {
+    margin: 0 0 8px 0;
+    font-size: 24px;
+    background: linear-gradient(90deg, var(--accent-deep) 0%, #0891b2 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.header-info .text-muted {
+    color: var(--text-secondary);
+    font-size: 13px;
+    margin: 0;
+}
+
+/* ===== 产品标签切换 ===== */
+.product-tabs-container {
+    display: flex;
+    align-items: center;
+}
+
+.product-tabs {
+    display: flex;
+    background: var(--surface-muted);
+    border-radius: 10px;
+    padding: 4px;
+    gap: 4px;
+}
+
+.product-tab {
+    padding: 7px 14px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 13px;
+    color: var(--text-secondary);
+    transition: all 0.25s;
+    white-space: nowrap;
+}
+
+.product-tab:hover {
+    color: var(--accent-strong);
+    background: rgba(255, 255, 255, 0.6);
+}
+
+.product-tab.active {
+    background: white;
+    color: var(--accent-color);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+}
+
+/* ===== 价格走势图样式 ===== */
+.chart-container {
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    border-radius: 10px;
+    padding: 10px;
+    border: 1px solid var(--border-color);
+    display: flex;
+    flex-direction: column;
+}
+
+.chart-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+    flex-shrink: 0;
+}
+
+.chart-header h4 {
+    margin: 0;
+    color: var(--primary-color);
+    font-size: 20px;
+    font-weight: 800;
+}
+
+.chart-header h4 i {
+    font-size: 18px;
+}
+
+.chart-info span {
+    font-weight: 700;
+    color: var(--secondary-color);
+    font-size: 11px;
+}
+
+#chart-product-name {
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--secondary-color);
+}
+
+.chart-period-tabs {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 6px;
+    padding: 2px;
+    background: rgba(255,255,255,0.6);
+    border-radius: 6px;
+    width: fit-content;
+    flex-shrink: 0;
+}
+
+.chart-period-tab {
+    padding: 4px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    transition: all 0.25s;
+    user-select: none;
+}
+
+.chart-period-tab:hover {
+    color: var(--secondary-color);
+    background: rgba(52, 152, 219, 0.08);
+}
+
+.chart-period-tab.active {
+    background: var(--secondary-color);
+    color: white;
+    box-shadow: 0 2px 6px rgba(52, 152, 219, 0.25);
+}
+
+.chart-wrapper {
+    flex: 1;
+    min-height: 240px;
+    max-height: 300px;
+    position: relative;
+    display: flex;
+}
+
+.chart-wrapper canvas {
+    flex: 1;
+    width: 100% !important;
+    height: 100% !important;
+}
+
+.chart-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(95px, 1fr));
+    gap: 6px;
+    margin-top: 8px;
+    flex-shrink: 0;
+}
+
+.stat-item {
+    background: white;
+    padding: 10px 6px;
+    border-radius: 6px;
+    text-align: center;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.06);
+    border: 1px solid var(--border-color);
+    border-top: 3px solid var(--neutral-color);
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.stat-item:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+
+/* 本月最高、本月最低、月均价、涨跌幅颜色区分 */
+.stat-item:nth-child(1) { border-top-color: var(--danger-color); }
+.stat-item:nth-child(2) { border-top-color: var(--success-color); }
+.stat-item:nth-child(3) { border-top-color: var(--secondary-color); }
+.stat-item:nth-child(4) { border-top-color: var(--warning-color); }
+
+.stat-label {
+    font-size: 12px;
+    color: var(--text-secondary);
+    margin-bottom: 5px;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+}
+
+.stat-value {
+    font-size: 18px;
+    font-weight: 800;
+    color: var(--primary-color);
+}
+
+/* ===== 文本颜色工具类 ===== */
+.text-success {
+    color: var(--success-color) !important;
+}
+
+.text-danger {
+    color: var(--danger-color) !important;
+}
+
+/* ===== 历史数据表格样式 ===== */
+.history-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin: 18px 0 10px;
+    padding: 12px;
+    background: var(--surface-muted);
+    border-radius: 10px;
+    flex-wrap: nowrap;
+}
+
+.year-selector {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-shrink: 0;
+}
+
+.year-selector label {
+    font-weight: 600;
+    color: var(--primary-color);
+    font-size: 14px;
+    white-space: nowrap;
+}
+
+.year-selector .form-control {
+    width: auto;
+    min-width: 110px;
+    padding: 0 10px;
+    font-size: 14px;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    background: white;
+    color: var(--text-secondary);
+}
+
+.year-selector .form-control:focus {
+    outline: none;
+    border-color: var(--focus-color);
+}
+
+.month-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    justify-content: center;
+    flex: 1;
+}
+
+.month-tab {
+    padding: 6px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    transition: all 0.25s;
+    user-select: none;
+    min-width: 50px;
+    text-align: center;
+}
+
+.month-tab:hover {
+    color: var(--accent-strong);
+    background: rgba(255, 255, 255, 0.6);
+}
+
+.month-tab.active {
+    background: white;
+    color: var(--accent-color);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+}
+
+.history-total {
+    font-size: 13px;
+    color: var(--text-secondary);
+    text-align: right;
+    white-space: nowrap;
+    flex-shrink: 0;
+    font-weight: 600;
+}
+
+/* ===== 历史数据双列表格布局 ===== */
+.history-table-layout {
+    display: flex;
+    gap: 15px;
+}
+
+.history-table-column {
+    flex: 1;
+    min-width: 0;
+    overflow-x: auto;
+    background: white;
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+    box-shadow: 0 2px 6px rgba(0,0,0,0.04);
+}
+
+.history-table-column .history-table {
+    width: 100%;
+    min-width: 320px;
+}
+
+.history-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+    background: white;
+}
+
+.history-table th {
+    background: #f4f7f9;
+    padding: 10px 8px;
+    text-align: center;
+    font-weight: 700;
+    color: var(--primary-color);
+    border-bottom: 2px solid #d0d8dd;
+    border-right: 1px solid #e1e8ed;
+    white-space: nowrap;
+}
+
+.history-table th:last-child {
+    border-right: none;
+}
+
+/* 表头单位标注（由后台“产品类型”维护，前端按产品填充）：独占一行居中，避免撑宽列宽 */
+.history-table th .unit-tag {
+    display: block;
+    font-weight: 400;
+    font-size: 0.85em;
+}
+
+.history-table td {
+    padding: 8px 10px;
+    text-align: center;
+    border-bottom: 1px solid var(--table-border);
+    border-right: 1px solid var(--table-border);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 130px;
+}
+
+.history-table td:last-child {
+    border-right: none;
+}
+
+.history-table tr:hover {
+    background: rgba(52, 152, 219, 0.05);
+}
+
+/* 涨跌行背景色 */
+.history-table tr.row-up {
+    background: rgba(39, 174, 96, 0.08);
+}
+
+.history-table tr.row-down {
+    background: rgba(231, 76, 60, 0.08);
+}
+
+.history-table tr.row-neutral {
+    background: rgba(149, 165, 166, 0.05);
+}
+
+.history-table tr.row-up:hover,
+.history-table tr.row-down:hover,
+.history-table tr.row-neutral:hover {
+    background: rgba(52, 152, 219, 0.08);
+}
+
+.history-table .change-up {
+    color: var(--success-color);
+    font-weight: 600;
+}
+
+.history-table .change-down {
+    color: var(--danger-color);
+    font-weight: 600;
+}
+
+.history-table .change-neutral {
+    color: var(--neutral-color);
+}
+
+/* ===== 走势图与日期区间计算器左右布局 ===== */
+.chart-calculator-layout {
+    display: flex;
+    gap: 15px;
+    margin-bottom: 18px;
+    align-items: stretch;
+}
+
+.chart-calculator-layout .chart-container {
+    flex: 1;
+    margin-bottom: 0;
+    min-width: 0;
+}
+
+.date-range-calculator {
+    width: 250px;
+    flex-shrink: 0;
+    background: rgba(255, 255, 255, 0.9);
+    border-radius: 12px;
+    padding: 10px;
+    box-shadow: 0 8px 24px rgba(59, 130, 246, 0.08);
+    border: 1px solid rgba(59, 130, 246, 0.12);
+    display: flex;
+    flex-direction: column;
+}
+
+.date-range-calculator h4 {
+    margin: 0 0 8px 0;
+    color: var(--accent-strong);
+    font-size: 15px;
+    font-weight: 800;
+    background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+    border: 1px solid rgba(59, 130, 246, 0.2);
+    border-radius: 8px;
+    padding: 8px 10px;
+    flex-shrink: 0;
+}
+
+.date-range-calculator h4 i {
+    font-size: 12px;
+}
+
+.date-range-calculator .calculator-form {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 8px;
+    flex-shrink: 0;
+}
+
+.date-range-calculator .calculator-input {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.date-range-calculator .calculator-input label {
+    font-weight: 700;
+    color: var(--accent-deep);
+    font-size: 15px;
+}
+
+.date-range-calculator .form-control {
+    padding: 0 10px;
+    border: 2px solid rgba(59, 130, 246, 0.15);
+    border-radius: 6px;
+    font-size: 13px;
+    transition: all 0.3s;
+    width: 100%;
+    height: 34px;
+    background: rgba(255, 255, 255, 0.8);
+}
+
+.date-range-calculator .form-control:focus {
+    outline: none;
+    border-color: var(--focus-color);
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.date-range-calculator .btn-block {
+    width: 100%;
+    padding: 6px 8px;
+    font-size: 13px;
+    border-radius: 6px;
+    height: 34px;
+}
+
+.date-range-calculator .calculator-result {
+    background: linear-gradient(135deg, rgba(239, 246, 255, 0.8) 0%, rgba(224, 242, 254, 0.8) 100%);
+    border-radius: 8px;
+    padding: 10px;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    border: 1px solid rgba(59, 130, 246, 0.08);
+}
+
+.date-range-calculator .result-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 6px 0;
+    border-bottom: 1px solid rgba(59, 130, 246, 0.1);
+}
+
+.date-range-calculator .result-item:last-child {
+    border-bottom: none;
+}
+
+.date-range-calculator .result-label {
+    font-size: 15px;
+    color: var(--text-secondary);
+    font-weight: 600;
+}
+
+.date-range-calculator .result-value {
+    font-size: 15px;
+    font-weight: 800;
+    color: var(--accent-strong);
+}
+
+/* ===== 打印专用区域 ===== */
+.print-section {
+    display: none;
+}
+
+.print-title {
+    text-align: center;
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--primary-color);
+    margin-bottom: 30px;
+    padding-bottom: 10px;
+    border-bottom: 3px double #333;
+}
+
+.print-stats {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+    margin-bottom: 15px;
+}
+
+.print-stat {
+    background: #f8f9fa;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    padding: 10px;
+    text-align: center;
+}
+
+.print-stat-label {
+    display: block;
+    font-size: 12px;
+    color: #666;
+    margin-bottom: 5px;
+}
+
+.print-stat-value {
+    display: block;
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--primary-color);
+}
+
+/* ===== 打印样式（A4竖版） ===== */
+@media print {
+    @page {
+        size: A4 portrait;
+        margin: 15mm;
+    }
+
+    * {
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+    }
+
+    body {
+        background: white !important;
+        padding: 0 !important;
+        color: black !important;
+        font-size: 12pt;
+    }
+
+    .container {
+        width: 100% !important;
+        max-width: 100% !important;
+        padding: 0 !important;
+        margin: 0 !important;
+    }
+
+    /* 隐藏非打印元素 */
+    .history-header,
+    .chart-calculator-layout,
+    .history-toolbar,
+    .print-btn,
+    .admin-link {
+        display: none !important;
+    }
+
+    /* 显示打印区域 */
+    .print-section {
+        display: block !important;
+    }
+
+    /* 历史表格打印样式，强制保持原始双列并排布局 */
+    .history-table-layout {
+        display: flex !important;
+        flex-direction: row !important;
+        flex-wrap: nowrap !important;
+        width: 100% !important;
+        gap: 2px;
+    }
+
+    .history-table-column {
+        flex: 1 1 50% !important;
+        min-width: 0 !important;
+        max-width: 50% !important;
+        width: 50% !important;
+        background: white;
+        border: 1px solid #999;
+        box-shadow: none;
+        border-radius: 0;
+        overflow: visible;
+    }
+
+    .history-table-column .history-table {
+        min-width: auto;
+        width: 100% !important;
+        table-layout: fixed !important;
+    }
+
+    .history-table {
+        font-size: 7px;
+    }
+
+    .history-table .col-price-range {
+        display: none !important;
+    }
+
+    .history-table th,
+    .history-table td {
+        width: 33.333%;
+        padding: 2px 3px;
+        border-color: #bbb;
+        white-space: normal;
+        word-break: break-all;
+    }
+
+    .history-table th {
+        background: #f0f0f0 !important;
+    }
+
+    .history-table tr.row-up {
+        background: rgba(39, 174, 96, 0.12) !important;
+    }
+
+    .history-table tr.row-down {
+        background: rgba(231, 76, 60, 0.12) !important;
+    }
+
+    .history-table tr.row-neutral {
+        background: rgba(149, 165, 166, 0.08) !important;
+    }
+
+    .history-section {
+        box-shadow: none !important;
+        border: 1px solid #ddd !important;
+        page-break-inside: avoid;
+    }
+
+    a {
+        color: black !important;
+        text-decoration: none !important;
+    }
+
+    /* 避免表格跨页断开 */
+    table {
+        page-break-inside: avoid;
+    }
+
+    tr {
+        page-break-inside: avoid;
+        page-break-after: auto;
+    }
+}
+
+/* ===== 浮动按钮和链接 ===== */
+.print-btn {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    background: linear-gradient(135deg, var(--accent-color) 0%, #06b6d4 100%);
+    color: white;
+    border: none;
+    border-radius: 50px;
+    padding: 12px 20px;
+    font-weight: 600;
+    font-size: 14px;
+    box-shadow: 0 4px 16px rgba(37, 99, 235, 0.4);
+    cursor: pointer;
+    z-index: 1000;
+    transition: all 0.3s;
+}
+
+.print-btn:hover {
+    background: linear-gradient(135deg, #1d4ed8 0%, #0891b2 100%);
+    box-shadow: 0 6px 20px rgba(37, 99, 235, 0.5);
+    transform: scale(1.05);
+}
+
+.admin-link {
+    position: fixed;
+    bottom: 20px;
+    left: 20px;
+    color: var(--accent-color);
+    text-decoration: none;
+    font-size: 13px;
+    font-weight: 600;
+    transition: all 0.3s;
+}
+
+.admin-link:hover {
+    color: #06b6d4;
+    text-shadow: 0 0 8px rgba(6, 182, 212, 0.4);
+}
+
+/* 视口高度不足时取消固定定位：浮动按钮会压住走势图/计算器的数值，
+   改为随文档流排在页面末尾，滚动到底即可看到 */
+@media (max-height: 700px) {
+    .print-btn {
+        position: static;
+        display: block;
+        margin: 20px auto 0;
+    }
+
+    .admin-link {
+        position: static;
+        display: block;
+        width: fit-content;
+        margin: 12px auto 0;
+    }
+}
+
+/* ===== 响应式设计 ===== */
+
+/* 平板和移动端 (≤768px) */
+@media (max-width: 768px) {
+    /* 产品标签、走势图布局、历史表工具栏等移动端规则统一由 price-mobile.css 提供（加载在后，优先级更高） */
+    /* 此处仅保留 price-mobile.css 未覆盖的项 */
+    .history-section {
+        padding: 15px;
+    }
+
+    .history-table {
+        font-size: 12px;
+    }
+
+    .history-table th,
+    .history-table td {
+        padding: 8px 10px;
+    }
+}
+
+/* 小屏幕手机 (≤480px) */
+@media (max-width: 480px) {
+    .history-table {
+        font-size: 11px;
+    }
+
+    .history-table th,
+    .history-table td {
+        padding: 6px 8px;
+    }
+
+    .stat-value {
+        font-size: 15px;
+    }
+}
+
+/* ===== 内联 SVG 图标（替代 Font Awesome，减小首屏体积） ===== */
+.icon-svg {
+    width: 1em;
+    height: 1em;
+    vertical-align: -0.12em;
+    margin-right: 0.3em;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+
+/* ===== price-mobile.css（移动端适配与深色模式） ===== */
+/* 报价查询系统 - 移动端适配 CSS */
+
+/* 基础移动端优化 */
+@media (max-width: 768px) {
+    /* 全局调整 */
+    body {
+        font-size: 14px;
+        /* 底部预留浮动按钮的高度，避免页面滚到底时内容被遮挡 */
+        padding: 10px 0 80px;
+        -webkit-text-size-adjust: 100%;
+    }
+
+    .container {
+        padding-left: 10px;
+        padding-right: 10px;
+        max-width: 100%;
+    }
+
+    /* 头部区域 */
+    .history-header {
+        gap: 12px;
+    }
+
+    .header-info h1 {
+        font-size: 20px;
+        margin-bottom: 6px;
+    }
+
+    .header-info .text-muted {
+        font-size: 12px;
+    }
+
+    /* 产品标签切换：横排可滑动，避免竖排堆叠占用过多纵向空间 */
+    .product-tabs-container {
+        width: 100%;
+    }
+
+    .product-tabs {
+        flex-direction: row;
+        flex-wrap: nowrap;
+        justify-content: center;
+        gap: 6px;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        width: 100%;
+        scrollbar-width: none;
+    }
+
+    .product-tabs::-webkit-scrollbar {
+        display: none;
+    }
+
+    .product-tab {
+        flex: 0 0 auto;
+        min-width: auto;
+        padding: 10px 16px;
+        font-size: 13px;
+        border-radius: 6px;
+        text-align: center;
+        white-space: nowrap;
+    }
+
+    /* 走势图周期切换 */
+    .chart-period-tabs {
+        width: 100%;
+        justify-content: space-between;
+    }
+
+    .chart-period-tab {
+        flex: 1;
+        text-align: center;
+        padding: 7px 0;
+        font-size: 12px;
+    }
+
+    /* 走势图与日期区间计算器左右布局 */
+    .chart-calculator-layout {
+        flex-direction: column;
+        gap: 12px;
+    }
+
+    .chart-wrapper {
+        min-height: 220px;
+    }
+
+    .date-range-calculator {
+        width: 100%;
+    }
+
+    .date-range-calculator h4 {
+        font-size: 14px;
+    }
+
+    /* 历史表格分页工具条 */
+    .history-toolbar {
+        flex-wrap: wrap;
+        gap: 8px;
+        padding: 10px;
+    }
+
+    .history-table-layout {
+        flex-direction: column;
+        gap: 12px;
+    }
+
+    .history-table-column {
+        width: 100%;
+    }
+
+    .year-selector {
+        gap: 8px;
+    }
+
+    .year-selector label {
+        font-size: 13px;
+    }
+
+    .year-selector .form-control {
+        min-width: 90px;
+        padding: 0 10px;
+    }
+
+    .month-tabs {
+        justify-content: flex-start;
+        gap: 4px;
+        order: 3;
+        width: 100%;
+    }
+
+    .month-tab {
+        padding: 5px 8px;
+        font-size: 11px;
+        min-width: 36px;
+    }
+
+    .history-total {
+        text-align: right;
+        font-size: 12px;
+    }
+
+    /* 打印按钮 */
+    .print-btn {
+        bottom: 15px;
+        right: 15px;
+        padding: 10px 16px;
+        font-size: 12px;
+        border-radius: 25px;
+    }
+
+    .print-btn i {
+        margin-right: 5px;
+    }
+
+    /* 后台管理链接 */
+    .admin-link {
+        bottom: 15px;
+        left: 15px;
+        font-size: 12px;
+    }
+
+    /* 表单适配（输入内边距由 base.css 统一提供） */
+    .form-control {
+        font-size: 14px;
+        border-radius: 4px;
+    }
+    
+    .btn {
+        padding: 8px 16px;
+        font-size: 13px;
+        border-radius: 4px;
+    }
+    
+    /* 历史表格移动端溢出处理 */
+    .history-table-column {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+    .history-table td {
+        max-width: 90px;
+    }
+}
+
+/* 超小屏幕适配 (iPhone SE 等) */
+@media (max-width: 375px) {
+    .history-section {
+        padding: 12px;
+    }
+
+    .header-info h1 {
+        font-size: 18px;
+    }
+
+    .product-tab {
+        padding: 9px 12px;
+        font-size: 12px;
+    }
+
+    .stat-value {
+        font-size: 14px;
+    }
+
+    .print-btn {
+        padding: 8px 14px;
+        font-size: 11px;
+        bottom: 10px;
+        right: 10px;
+    }
+
+    .admin-link {
+        bottom: 10px;
+        left: 10px;
+        font-size: 11px;
+    }
+
+    .history-toolbar {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 8px;
+    }
+
+    .year-selector {
+        justify-content: space-between;
+    }
+
+    /* 恢复自然顺序：年份选择器 → 月份标签 → 统计文字 */
+    .month-tabs {
+        order: 0;
+        justify-content: flex-start;
+    }
+
+    .history-total {
+        text-align: center;
+    }
+}
+
+/* 平板适配 (768px - 1024px) */
+@media (min-width: 769px) and (max-width: 1024px) {
+    .container {
+        max-width: 95%;
+    }
+
+    .product-tabs {
+        flex-wrap: wrap;
+    }
+
+    .product-tab {
+        flex: 0 0 calc(33.333% - 10px);
+        min-width: 0;
+    }
+}
+
+/* 横屏模式优化 */
+@media (max-height: 500px) and (orientation: landscape) {
+    .header-info h1 {
+        font-size: 18px;
+    }
+
+    .product-tabs {
+        flex-direction: row;
+        flex-wrap: wrap;
+    }
+
+    .product-tab {
+        flex: 0 0 calc(20% - 8px);
+        min-width: 0;
+        padding: 7px 10px;
+        font-size: 11px;
+    }
+
+    .chart-wrapper {
+        min-height: 180px;
+    }
+
+    .chart-period-tab {
+        padding: 5px 0;
+        font-size: 11px;
+    }
+}
+
+/* 触摸设备优化 */
+@media (hover: none) and (pointer: coarse) {
+    /* 增大触摸目标 */
+    .product-tab,
+    .btn,
+    .print-btn,
+    .admin-link {
+        min-height: 44px; /* Apple 推荐的最小触摸目标尺寸 */
+    }
+
+    .product-tab {
+        padding: 12px 16px;
+    }
+
+    .btn {
+        padding: 10px 20px;
+    }
+
+    /* 移除悬停效果 */
+    .product-tab:hover,
+    .btn:hover {
+        transform: none;
+    }
+
+    /* 增加点击反馈 */
+    .product-tab:active,
+    .btn:active {
+        opacity: 0.7;
+    }
+
+    /* 表单输入优化 */
+    input, select, textarea {
+        font-size: 16px; /* 防止 iOS 缩放 */
+    }
+
+    .form-control {
+        min-height: 44px;
+    }
+}
+
+/* 深色模式支持 */
+@media (prefers-color-scheme: dark) {
+    :root {
+        --primary-color: #ecf0f1;
+        --secondary-color: #3498db;
+        --light-bg: #2c3e50;
+        --border-color: #34495e;
+
+        /* 语义变量整体翻转，使 price-styles.css 不必逐条覆盖硬编码色 */
+        --text-secondary: #bdc3c7;
+        --surface-muted: #34495e;
+        --accent-color: #60a5fa;
+        --accent-strong: #93c5fd;
+        --accent-deep: #bfdbfe;
+        --focus-color: #60a5fa;
+        --neutral-color: #bdc3c7;
+        --table-border: #34495e;
+    }
+
+    body {
+        background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+        color: #ecf0f1;
+    }
+
+    .history-section,
+    .stat-item,
+    .date-range-calculator {
+        background: #2c3e50;
+        color: #ecf0f1;
+    }
+
+    .chart-container {
+        background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+    }
+
+    /* 表头单元格自身有浅色底 + var(--primary-color) 文字色，
+       深色模式下 --primary-color 变近白，必须一并覆盖，否则白字白底不可读 */
+    .history-table th {
+        background: #34495e;
+        color: #ecf0f1;
+        border-bottom-color: #34495e;
+        border-right-color: #34495e;
+    }
+
+    /* 表格容器在 price-styles.css 中写死白底，且 td 无显式文字色，
+       会继承 .history-section 的近白文字形成白底白字，必须覆盖 */
+    .history-table-column,
+    .history-table {
+        background: #2c3e50;
+    }
+
+    .history-table td {
+        color: #ecf0f1;
+    }
+
+    .text-muted {
+        color: #bdc3c7 !important;
+    }
+
+    .form-control {
+        background: #34495e;
+        border-color: #4a6572;
+        color: #ecf0f1;
+    }
+
+    .form-control:focus {
+        background: #2c3e50;
+        border-color: var(--secondary-color);
+    }
+
+    /* .date-range-calculator / .year-selector 下的 .form-control 特异性(0,2,0)
+       高于上方 .form-control(0,1,0)，其写死的浅色底（白/半透明）不会被覆盖，需同等级覆盖 */
+    .date-range-calculator .form-control,
+    .year-selector .form-control {
+        background: #34495e;
+        border-color: #4a6572;
+        color: #ecf0f1;
+    }
+
+    .product-tab:hover {
+        color: #ecf0f1;
+        background: rgba(255, 255, 255, 0.1);
+    }
+
+    .product-tab.active {
+        background: var(--secondary-color);
+        color: #fff;
+    }
+
+    .month-tab:hover {
+        color: #ecf0f1;
+        background: rgba(255, 255, 255, 0.1);
+    }
+
+    .month-tab.active {
+        background: var(--secondary-color);
+        color: #fff;
+    }
+
+    .date-range-calculator h4 {
+        background: linear-gradient(135deg, #34495e 0%, #2c3e50 100%);
+        border-color: rgba(52, 152, 219, 0.3);
+        color: #ecf0f1;
+    }
+
+    .date-range-calculator .calculator-result {
+        background: rgba(52, 73, 94, 0.5);
+    }
+}
+
+/* 打印样式统一收敛至 price-styles.css 的 @media print */
+
+

@@ -5,7 +5,8 @@
     /* 全局调整 */
     body {
         font-size: 14px;
-        padding: 10px 0 20px;
+        /* 底部预留浮动按钮的高度，避免页面滚到底时内容被遮挡 */
+        padding: 10px 0 80px;
         -webkit-text-size-adjust: 100%;
     }
 

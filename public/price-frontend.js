@@ -625,6 +625,27 @@ function renderProductTabs(products, activeCode) {
 // 价格走势图实例
 var priceChart = null;
 
+// Chart.js 按需加载：首屏数据就绪后才注入，避免与首屏资源抢占带宽
+var chartLoadPromise = null;
+var chartLoading = false;
+var pendingChartOpts = null;
+
+function ensureChart() {
+    if (window.Chart) return Promise.resolve();
+    if (chartLoadPromise) return chartLoadPromise;
+    chartLoadPromise = new Promise(function(resolve, reject) {
+        var script = document.createElement('script');
+        script.src = '/assets/js/chart.min.js?v=3';
+        script.onload = function() { resolve(); };
+        script.onerror = function() {
+            chartLoadPromise = null;
+            reject(new Error('chart.min.js 加载失败'));
+        };
+        document.head.appendChild(script);
+    });
+    return chartLoadPromise;
+}
+
 // Chart.js 不识别 CSS 变量，深浅色下的文字/网格配色需按系统偏好显式给定
 function getChartTheme() {
     var dark = !!(window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
@@ -907,6 +928,28 @@ function applyChartSeries(opts) {
         return;
     }
 
+    // 首次绘制时才加载 Chart.js；加载期间只保留最新一次参数，避免重复初始化
+    if (!priceChart) {
+        pendingChartOpts = opts;
+        if (!chartLoading) {
+            chartLoading = true;
+            ensureChart().then(function() {
+                chartLoading = false;
+                var latest = pendingChartOpts;
+                pendingChartOpts = null;
+                if (!priceChart) initPriceChart();
+                // 图表晚于单位信息就绪，补一次单位标注（Y 轴标题）
+                if (priceChart) updateUnitDisplays();
+                if (latest) applyChartSeries(latest);
+            }).catch(function(error) {
+                chartLoading = false;
+                pendingChartOpts = null;
+                console.error('加载图表库失败:', error);
+            });
+        }
+        return;
+    }
+
     var highPrice = -Infinity;
     var lowPrice = Infinity;
     for (var i = 0; i < prices.length; i++) {
@@ -1115,22 +1158,26 @@ function loadLastUpdate() {
 
 // 页面加载时执行
 $(document).ready(function() {
-    // 加载站点设置
-    loadSiteSettings();
+    // 让出首帧：先让浏览器完成首次绘制，再发起数据请求，避免阻塞 FCP
+    requestAnimationFrame(function() {
+        setTimeout(function() {
+            // 加载站点设置
+            loadSiteSettings();
 
-    // 加载最后更新时间
-    loadLastUpdate();
-    
-    // 初始化价格走势图
-    initPriceChart();
-    
-    // 从后台加载产品分类，然后初始化第一个产品
-    loadProductTabs().then(function(firstProduct) {
-        if (firstProduct) {
-            currentProduct = firstProduct;
-            updateChartProductInfo(currentProduct);
-            loadPriceHistory(currentProduct);
-            // loadPriceHistory 内部会根据 chartMode 自动调用走势图更新，无需重复调用
-        }
+            // 加载最后更新时间
+            loadLastUpdate();
+
+            // 走势图在首屏数据返回后按需加载 Chart.js（见 applyChartSeries）
+
+            // 从后台加载产品分类，然后初始化第一个产品
+            loadProductTabs().then(function(firstProduct) {
+                if (firstProduct) {
+                    currentProduct = firstProduct;
+                    updateChartProductInfo(currentProduct);
+                    loadPriceHistory(currentProduct);
+                    // loadPriceHistory 内部会根据 chartMode 自动调用走势图更新，无需重复调用
+                }
+            });
+        }, 0);
     });
 });

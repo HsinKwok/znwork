@@ -43,7 +43,8 @@
 ├── package.json
 ├── public/                  # 静态资源（直接托管）
 │   ├── price-frontend.html  # 前台页面
-│   ├── price-frontend.js    # 前台交互脚本（按年份懒加载历史数据）
+│   ├── price-frontend.js    # 前台交互脚本（按年份懒加载历史数据、按需加载 Chart.js）
+│   ├── price-frontend.css   # 前台样式包（bootstrap + base + price-styles + price-mobile 合并）
 │   ├── price-admin.html     # 后台页面
 │   ├── price-admin.js       # 后台核心脚本
 │   ├── price-admin-cron.js  # 后台定时任务脚本

@@ -19,21 +19,21 @@ export default {
     
     // 静态文件服务
     if (path === '/' || path === '/index.html') {
-      return serveStaticFile('price-frontend.html', env);
+      return serveStaticFile('price-frontend.html', env, request);
     }
     
     if (path === '/admin' || path === '/admin.html') {
-      return serveStaticFile('price-admin.html', env);
+      return serveStaticFile('price-admin.html', env, request);
     }
     
     // 其他路径优先按实际文件提供（CSS/JS/图片等静态资源）
-    const assetResponse = await serveStaticFile(path.slice(1), env);
+    const assetResponse = await serveStaticFile(path.slice(1), env, request);
     if (assetResponse.status === 200) {
       return assetResponse;
     }
     
     // 未找到静态文件时回退到前端页面（SPA 行为）
-    return serveStaticFile('price-frontend.html', env);
+    return serveStaticFile('price-frontend.html', env, request);
   },
 
   // 定时任务入口：由 Cloudflare Cron Trigger 触发
@@ -2680,25 +2680,47 @@ async function recordExists(env, table, id) {
   return !!row;
 }
 
-// 辅助函数：提供静态文件
-async function serveStaticFile(filename, env) {
+// 辅助函数：提供静态文件（HTML 走 ETag 协商缓存，静态资源走强缓存）
+async function serveStaticFile(filename, env, request) {
   try {
-    const file = await env.ASSETS.fetch(new Request(`https://assets.internal/${filename}`));
-    
+    const isHtml = filename.endsWith('.html');
+    const cacheControl = isHtml ? 'no-cache' : 'public, max-age=86400';
+    const ifNoneMatch = request ? request.headers.get('If-None-Match') : null;
+
+    // 转发条件请求头，让 ASSETS 有机会直接返回 304
+    const assetHeaders = new Headers();
+    if (ifNoneMatch) assetHeaders.set('If-None-Match', ifNoneMatch);
+    const file = await env.ASSETS.fetch(new Request(`https://assets.internal/${filename}`, { headers: assetHeaders }));
+
+    if (file.status === 304) {
+      return new Response(null, { status: 304, headers: { 'Cache-Control': cacheControl } });
+    }
+
     if (file.status === 200) {
       const headers = new Headers(file.headers);
       // 优先沿用 ASSETS 返回的 Content-Type，仅在缺失时按扩展名兜底
       if (!headers.get('Content-Type')) {
         headers.set('Content-Type', getContentType(filename));
       }
-      if (filename.endsWith('.html')) {
-        // HTML 保持实时性，禁用缓存
-        headers.set('Cache-Control', 'no-cache, no-store, must-revalidate');
-        headers.delete('ETag');
-      } else {
-        // 静态资源（CSS/JS/图片等）走正常缓存，保留 ETag 用于协商缓存
-        headers.set('Cache-Control', 'public, max-age=86400');
+      headers.set('Cache-Control', cacheControl);
+
+      if (isHtml) {
+        // Assets 不返回 HTML 的 ETag，这里按内容生成，浏览器可带 If-None-Match 协商
+        const body = await file.arrayBuffer();
+        let etag = headers.get('ETag');
+        if (!etag) {
+          const digest = await crypto.subtle.digest('SHA-256', body);
+          etag = '"' + Array.from(new Uint8Array(digest).slice(0, 16))
+            .map(b => b.toString(16).padStart(2, '0'))
+            .join('') + '"';
+        }
+        headers.set('ETag', etag);
+        if (ifNoneMatch === etag) {
+          return new Response(null, { status: 304, headers: { 'Cache-Control': cacheControl, 'ETag': etag } });
+        }
+        return new Response(body, { headers });
       }
+
       return new Response(file.body, { headers });
     }
     
