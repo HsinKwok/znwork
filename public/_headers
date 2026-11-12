@@ -1,0 +1,27 @@
+# 静态资源响应头（仅对静态资源生效，不作用于 Worker 生成的响应）
+# 这些文件都通过 ?v=N 版本号引用，内容变化时前端会升级版本号，因此可放心长缓存
+/assets/*
+    Cache-Control: public, max-age=31536000, immutable
+
+/base.css
+    Cache-Control: public, max-age=31536000, immutable
+
+/price-frontend.css
+    Cache-Control: public, max-age=31536000, immutable
+
+/price-frontend.js
+    Cache-Control: public, max-age=31536000, immutable
+
+/shared.js
+    Cache-Control: public, max-age=3600
+
+# 后台脚本同时被 price-admin.html 引用，且与前台各自维护版本号，
+# 一旦某处忘了升级 ?v= 就会长时间读到旧文件，因此只给 1 小时缓存。
+/price-admin.js
+    Cache-Control: public, max-age=3600
+
+/price-admin-cron.js
+    Cache-Control: public, max-age=3600
+
+/favicon.ico
+    Cache-Control: public, max-age=86400

@@ -4,6 +4,9 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title class="site-title">报价查询系统</title>
+    <link rel="icon" href="/favicon.ico" type="image/x-icon">
+    <!-- 提前发起首屏接口请求，与 JS 下载并行；同源 fetch 会复用该预加载结果 -->
+    <link rel="preload" as="fetch" href="/api/price/products" crossorigin="anonymous">
     <!-- 首屏关键样式：price-frontend.css 的可见区子集，避免样式表阻塞首屏渲染 -->
     <style>
         :root{--primary-color:#2c3e50;--secondary-color:#3498db;--success-color:#27ae60;--danger-color:#e74c3c;--warning-color:#f39c12;--light-bg:#f8f9fa;--border-color:#dee2e6;--text-secondary:#475569;--surface-muted:#e2e8f0;--accent-color:#2563eb;--accent-strong:#1e40af;--accent-deep:#1e3a8a;--focus-color:#3b82f6;--neutral-color:#95a5a6;--table-border:#e8eef2}
@@ -20,15 +23,19 @@
         .product-tab.active{background:#fff;color:var(--accent-color)}
         .chart-calculator-layout{display:flex;gap:15px;margin-bottom:18px;align-items:stretch}
         .chart-container{flex:1;min-width:0;display:flex;flex-direction:column;padding:10px;border:1px solid var(--border-color);border-radius:10px;background:#f8f9fa}
-        .chart-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
-        .chart-header h4{margin:0;font-size:20px;font-weight:800;color:var(--primary-color)}
+        .chart-header{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:4px 10px;margin-bottom:8px}
+        .chart-header h4{order:1;margin:0;font-size:20px;font-weight:800;color:var(--primary-color);white-space:nowrap}
+        .chart-info{order:3;flex-shrink:0}
         .chart-info span{font-size:11px;font-weight:700;color:var(--secondary-color)}
+        /* 当前图表时间区间：字号随视口收缩，空间不足时整行换行，避免挤压两侧标题 */
+        .chart-range{order:2;flex:1 1 auto;min-width:0;text-align:center;white-space:nowrap;font-size:clamp(10px,1.2vw,13px);font-weight:600;color:var(--text-secondary);font-variant-numeric:tabular-nums}
         #chart-product-name{font-size:20px;font-weight:700;color:var(--secondary-color)}
         .chart-period-tabs{display:flex;gap:4px;width:fit-content;margin-bottom:6px;padding:2px;background:rgba(255,255,255,.6);border-radius:6px}
         .chart-period-tab{padding:4px 12px;border-radius:4px;font-size:12px;font-weight:600;color:var(--text-secondary);cursor:pointer}
         .chart-period-tab.active{background:var(--secondary-color);color:#fff}
         .chart-wrapper{position:relative;display:flex;flex:1;min-height:240px;max-height:300px}
-        .chart-wrapper canvas{flex:1;width:100%!important;height:100%!important}
+        #price-chart{position:absolute;top:0;right:0;bottom:0;left:0}
+        #price-chart svg{display:block;width:100%;height:100%}
         .chart-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(95px,1fr));gap:6px;margin-top:8px}
         .stat-item{padding:10px 6px;text-align:center;background:#fff;border:1px solid var(--border-color);border-top:3px solid var(--neutral-color);border-radius:6px}
         .stat-item:nth-child(1){border-top-color:var(--danger-color)}
@@ -76,15 +83,15 @@
         .text-muted{color:#777}
         .text-success{color:var(--success-color)!important}
         .text-danger{color:var(--danger-color)!important}
-        @media (max-width:768px){body{padding:10px 0 80px}.container{max-width:100%;padding:0 10px}.chart-calculator-layout{flex-direction:column;gap:12px}.date-range-calculator{width:100%}.history-toolbar{flex-wrap:wrap;gap:8px;padding:10px}.history-table-layout{flex-direction:column;gap:12px}.product-tabs{overflow-x:auto;flex-wrap:nowrap}}
+        @media (max-width:768px){body{padding:10px 0 80px}.container{max-width:100%;padding:0 10px}.chart-calculator-layout{flex-direction:column;gap:12px}.chart-range{order:4;flex-basis:100%;font-size:13px}.date-range-calculator{width:100%}.history-toolbar{flex-wrap:wrap;gap:8px;padding:10px}.history-table-layout{flex-direction:column;gap:12px}.product-tabs{overflow-x:auto;flex-wrap:nowrap}}
         @media (prefers-color-scheme:dark){body{background:linear-gradient(135deg,#1a1a2e 0%,#16213e 100%);color:#ecf0f1}.history-section,.stat-item,.date-range-calculator{background:#2c3e50;color:#ecf0f1}.chart-container{background:linear-gradient(135deg,#2c3e50 0%,#34495e 100%)}.history-table-column,.history-table{background:#2c3e50}.history-table td{color:#ecf0f1}.form-control{background:#34495e;border-color:#4a6572;color:#ecf0f1}}
     </style>
     <!-- 完整样式表异步加载：不阻塞首屏，加载完成后切换为普通样式表 -->
-    <link rel="preload" as="style" href="/price-frontend.css?v=5" onload="this.onload=null;this.rel='stylesheet'">
-    <noscript><link rel="stylesheet" href="/price-frontend.css?v=5"></noscript>
-    <script src="/assets/js/jquery.min.js" defer></script>
-    <script src="/shared.js?v=3" defer></script>
-    <script src="/price-frontend.js?v=4" defer></script>
+    <link rel="preload" as="style" href="/price-frontend.css?v=8" onload="this.onload=null;this.rel='stylesheet'">
+    <noscript><link rel="stylesheet" href="/price-frontend.css?v=8"></noscript>
+    <script src="/assets/js/jquery-lite.js?v=1" defer></script>
+    <script src="/shared.js?v=4" defer></script>
+    <script src="/price-frontend.js?v=15" defer></script>
 </head>
 <body>
     <div class="container">
@@ -108,6 +115,7 @@
                 <div class="chart-container" id="price-chart-container">
                     <div class="chart-header">
                         <h4><svg class="icon-svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3v18h18"/><path d="M6 15l4-5 3 3 5-7"/></svg> 价格走势图</h4>
+                        <div class="chart-range" id="chart-range"></div>
                         <div class="chart-info">
                             <span id="chart-product-name">产品名称</span>
                         </div>
@@ -117,7 +125,7 @@
                         <span class="chart-period-tab" data-period="365">年走势</span>
                     </div>
                     <div class="chart-wrapper">
-                        <canvas id="price-chart"></canvas>
+                        <div id="price-chart"></div>
                     </div>
                     <div class="chart-stats">
                         <div class="stat-item">

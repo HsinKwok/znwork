@@ -204,6 +204,11 @@ CREATE INDEX IF NOT EXISTS idx_api_logs_product ON api_logs(product_code, create
 CREATE INDEX IF NOT EXISTS idx_webhook_logs_wid ON webhook_logs(webhook_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_cron_jobs_enabled ON cron_jobs(enabled);
 CREATE INDEX IF NOT EXISTS idx_cron_logs_job ON cron_logs(job_id, started_at DESC);
+-- 全站最后更新时间（MAX(updated_at)）与后台按时间范围统计使用
+CREATE INDEX IF NOT EXISTS idx_daily_prices_updated_at ON daily_prices(updated_at DESC);
+CREATE INDEX IF NOT EXISTS idx_webhook_logs_created_at ON webhook_logs(created_at DESC);
+-- 定时任务清理挂起的 running 日志：WHERE status = 'running' AND started_at < ?
+CREATE INDEX IF NOT EXISTS idx_cron_logs_status_started ON cron_logs(status, started_at);
 
 -- 生产环境不预置每日报价数据。
 -- 请通过外部系统 webhook 推送、管理后台手工补录或 API 接口导入真实数据。

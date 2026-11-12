@@ -1,20 +1,27 @@
 name = "znwork"
 main = "price-worker.js"
 compatibility_date = "2026-06-01"
-compatibility_flags = ["nodejs_compat"]
 
 [[d1_databases]]
 binding = "DB"
 database_name = "znwork-price-db"
 # 执行 wrangler d1 create znwork-price-db 后，把输出的 id 填到这里
-database_id = "<YOUR_D1_DATABASE_ID>"
+database_id = "97e1712f-b0d0-4f7e-87f8-deddfd691182"
+
+# 登录接口前置限流（Cloudflare Rate Limiting binding）。
+# 在 Worker 内的 PBKDF2 之前先按 IP 挡掉高频请求，与 D1 的 login_attempts
+# 持久化计数互补（边缘计数不落库，各机房独立）。period 仅支持 10 或 60 秒。
+# 注意：该字段不会被命名环境继承，若部署 [env.production] / [env.staging] 需重复声明。
+[[ratelimits]]
+name = "LOGIN_RATELIMIT"
+namespace_id = "1001"
+simple = { limit = 30, period = 60 }
 
 # 注意：敏感配置（API 密钥、JWT 密钥等）存储在 D1 system_settings 表中，
 # 请部署后通过管理后台配置。[vars] 中仅存放非敏感的运行参数。
 [vars]
 # 本 Worker 对外的公开访问地址，用于生成推送卡片中的链接等。
-# 请改成自己的实际域名，例如 https://your-domain.com。
-WORKER_URL = "https://example.com"
+WORKER_URL = "https://zn.wiki"
 
 # 自定义域名与路由（可选）：改成自己的域名后取消注释，
 # 且该域名所在 zone 需已托管在本账号下。
@@ -35,7 +42,9 @@ ip = "127.0.0.1"
 [assets]
 directory = "./public"
 binding = "ASSETS"
-run_worker_first = true
+# 静态文件优先由边缘直接返回，不再为每个 CSS/JS 请求额外触发一次 Worker；
+# 只有 /api/*、/admin 和未匹配到文件的路径才会进入 Worker。
+run_worker_first = false
 
 [env.production]
 workers_dev = false

@@ -42,7 +42,7 @@
 ├── wrangler.toml            # Wrangler 配置
 ├── package.json
 ├── public/                  # 静态资源（直接托管）
-│   ├── price-frontend.html  # 前台页面
+│   ├── index.html           # 前台页面
 │   ├── price-frontend.js    # 前台交互脚本（按年份懒加载历史数据、按需加载 Chart.js）
 │   ├── price-frontend.css   # 前台样式包（bootstrap + base + price-styles + price-mobile 合并）
 │   ├── price-admin.html     # 后台页面
@@ -50,8 +50,6 @@
 │   ├── price-admin-cron.js  # 后台定时任务脚本
 │   ├── shared.js            # 前后台共用脚本
 │   ├── base.css
-│   ├── price-styles.css     # 基础布局样式
-│   ├── price-mobile.css     # 移动端适配样式
 │   ├── price-admin.css      # 后台样式
 │   └── assets/              # bootstrap / font-awesome / chart.js 等本地依赖
 └── README.md
@@ -330,7 +328,7 @@ curl "https://<your-domain>/api/price/latest?product=zinc0&limit=1"
 
 ## 移动端适配
 
-系统通过 `price-styles.css`（基础布局与 ≤480px 断点）与 `price-mobile.css`（≤768px 移动端优化）协同实现响应式设计：
+系统通过 `price-frontend.css` 内的基础布局与移动端样式段（≤480px / ≤768px 断点）实现响应式设计：
 
 - 手机端: 单列布局，卡片式展示
 - 平板端: 优化布局和字体大小

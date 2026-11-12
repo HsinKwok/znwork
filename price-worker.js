@@ -19,7 +19,7 @@ export default {
     
     // 静态文件服务
     if (path === '/' || path === '/index.html') {
-      return serveStaticFile('price-frontend.html', env, request);
+      return serveStaticFile('index.html', env, request);
     }
     
     if (path === '/admin' || path === '/admin.html') {
@@ -31,9 +31,16 @@ export default {
     if (assetResponse.status === 200) {
       return assetResponse;
     }
-    
-    // 未找到静态文件时回退到前端页面（SPA 行为）
-    return serveStaticFile('price-frontend.html', env, request);
+
+    // 只有页面导航才回退到前端页面（SPA 行为）。
+    // 脚本/样式/图片等子资源缺失时必须返回 404，不能拿 HTML 顶替，
+    // 否则会被浏览器的长缓存当成 JS 缓存一天，导致图表等功能失效。
+    const accept = request.headers.get('Accept') || '';
+    const isNavigate = request.headers.get('Sec-Fetch-Mode') === 'navigate';
+    if (isNavigate || accept.includes('text/html')) {
+      return serveStaticFile('index.html', env, request);
+    }
+    return new Response('文件未找到', { status: 404, headers: { 'Cache-Control': 'no-store' } });
   },
 
   // 定时任务入口：由 Cloudflare Cron Trigger 触发
@@ -75,7 +82,7 @@ async function handlePriceApi(request, env, ctx) {
   
   // 公开系统设置接口
   if (path === '/api/price/settings') {
-    return handleGetPublicSettings(env);
+    return withEdgeCache(request, ctx, 60, () => handleGetPublicSettings(env));
   }
 
   // 推送触发接口：URL 参数密钥鉴权（访问即向微信 Webhook 推送最新报价）
@@ -102,22 +109,22 @@ async function handlePriceApi(request, env, ctx) {
   // API 路由分发
   switch (true) {
     case path === '/api/price/products':
-      return handleGetProducts(env);
+      return withEdgeCache(request, ctx, 60, () => handleGetProducts(env));
 
     case path === '/api/price/latest':
-      return handleGetLatestPrices(env, url);
+      return withEdgeCache(request, ctx, 60, () => handleGetLatestPrices(env, url));
 
     case path === '/api/price/history':
-      return handleGetPriceHistory(env, url);
+      return withEdgeCache(request, ctx, 60, () => handleGetPriceHistory(env, url));
 
     case path === '/api/price/range':
-      return handleGetPriceRange(env, url);
+      return withEdgeCache(request, ctx, 60, () => handleGetPriceRange(env, url));
 
     case path === '/api/price/monthly':
-      return handleGetMonthlyAverages(env, url);
+      return withEdgeCache(request, ctx, 60, () => handleGetMonthlyAverages(env, url));
 
     case path === '/api/price/last-update':
-      return handleGetLastUpdate(env);
+      return withEdgeCache(request, ctx, 30, () => handleGetLastUpdate(env));
       
     case path === '/api/price/manual':
       return handleManualInput(request, env);
@@ -195,17 +202,8 @@ async function handlePriceApi(request, env, ctx) {
 // 获取公开系统设置（供前端页面使用）
 async function handleGetPublicSettings(env) {
   try {
-    const keys = ['frontend_title', 'data_source_name', 'data_source_url'];
-    // 一次查询取回全部设置，避免逐项查询带来的多次数据库往返
-    const { results } = await env.DB.prepare(
-      'SELECT key, value FROM system_settings WHERE key IN (?, ?, ?)'
-    ).bind(...keys).all();
-
-    const settings = {};
-    keys.forEach(key => { settings[key] = null; });
-    (results || []).forEach(row => { settings[row.key] = row.value; });
-
-    return jsonResponse({ settings }, 200, true);
+    const settings = await fetchPublicSettings(env);
+    return jsonResponse({ settings }, 200, true, 60);
   } catch (error) {
     return serverError('获取设置失败', error, true);
   }
@@ -637,7 +635,7 @@ async function handleGetLastUpdate(env) {
     return jsonResponse({
       last_update: result && result.last_update ? result.last_update : null,
       last_trade_date: result && result.last_trade_date ? result.last_trade_date : null
-    }, 200, true);
+    }, 200, true, 30);
   } catch (error) {
     return serverError('获取最后更新时间失败', error, true);
   }
@@ -760,27 +758,32 @@ async function handleBatchDeleteRecords(request, env) {
     
     // 使用参数化 IN 查询删除存在的记录
     const idPlaceholders = placeholders(validIds);
-    const countResult = await env.DB.prepare(`
-      SELECT COUNT(*) as count FROM daily_prices WHERE id IN (${idPlaceholders})
-    `).bind(...validIds).first();
+    // 待删条数与受影响的「产品 + 月份」互不依赖：并行查询
+    const [countResult, affectedMonths] = await Promise.all([
+      env.DB.prepare(`
+        SELECT COUNT(*) as count FROM daily_prices WHERE id IN (${idPlaceholders})
+      `).bind(...validIds).first(),
+      env.DB.prepare(`
+        SELECT DISTINCT product_id, strftime('%Y-%m', trade_date) as ym
+        FROM daily_prices
+        WHERE id IN (${idPlaceholders})
+      `).bind(...validIds).all()
+    ]);
     const willDelete = countResult ? countResult.count : validIds.length;
-
-    // 删除前先收集受影响的「产品 + 月份」，用于删除后重新计算月均价（按月份去重，避免重复重算）
-    const affectedMonths = await env.DB.prepare(`
-      SELECT DISTINCT product_id, strftime('%Y-%m', trade_date) as ym
-      FROM daily_prices
-      WHERE id IN (${idPlaceholders})
-    `).bind(...validIds).all();
 
     await env.DB.prepare(`
       DELETE FROM daily_prices WHERE id IN (${idPlaceholders})
     `).bind(...validIds).run();
 
-    // 重新计算受影响月份的月均价
+    // 重新计算受影响月份的月均价：所有语句合并成一次 batch 往返
+    const recalcStatements = [];
     if (affectedMonths.results && affectedMonths.results.length > 0) {
       for (const row of affectedMonths.results) {
-        await updateMonthlyAverage(row.product_id, row.ym + '-01', env);
+        recalcStatements.push(...buildMonthlyAverageStatements(env, row.product_id, row.ym + '-01'));
       }
+    }
+    if (recalcStatements.length > 0) {
+      await env.DB.batch(recalcStatements);
     }
 
     return jsonResponse({
@@ -941,49 +944,61 @@ async function handleAdminRecord(request, env) {
 }
 
 // 重新计算某产品某月份的月均价
-async function updateMonthlyAverage(productId, tradeDate, env) {
-  if (!productId || !tradeDate) return;
+// 构造月均价重算语句（重算 + 残留清理），供单条写入与批量写入复用
+function buildMonthlyAverageStatements(env, productId, tradeDate) {
   const yearMonth = String(tradeDate).slice(0, 7);
+  // 用日期区间代替 strftime('%Y-%m', trade_date) 比较：
+  // 后者无法走 (product_id, trade_date) 索引，会退化为按产品全表扫描
+  const monthStart = yearMonth + '-01';
+  const monthEnd = yearMonth + '-31';
 
-  // 重新计算（保留原始 created_at）
-  await env.DB.prepare(`
-    INSERT OR REPLACE INTO monthly_averages
-    (product_id, year_month, avg_price, days_count, low_price, high_price, created_at, updated_at)
-    SELECT
-      product_id,
-      ? as year_month,
-      ROUND(AVG(avg_price), 2) as avg_price,
-      COUNT(*) as days_count,
-      MIN(low_price) as low_price,
-      MAX(high_price) as high_price,
-      COALESCE((SELECT created_at FROM monthly_averages WHERE product_id = ? AND year_month = ?), CURRENT_TIMESTAMP),
-      CURRENT_TIMESTAMP
-    FROM daily_prices
-    WHERE product_id = ? AND strftime('%Y-%m', trade_date) = ?
-    GROUP BY product_id, strftime('%Y-%m', trade_date)
-  `).bind(yearMonth, productId, yearMonth, productId, yearMonth).run();
+  return [
+    env.DB.prepare(`
+      INSERT OR REPLACE INTO monthly_averages
+      (product_id, year_month, avg_price, days_count, low_price, high_price, created_at, updated_at)
+      SELECT
+        product_id,
+        ? as year_month,
+        ROUND(AVG(avg_price), 2) as avg_price,
+        COUNT(*) as days_count,
+        MIN(low_price) as low_price,
+        MAX(high_price) as high_price,
+        COALESCE((SELECT created_at FROM monthly_averages WHERE product_id = ? AND year_month = ?), CURRENT_TIMESTAMP),
+        CURRENT_TIMESTAMP
+      FROM daily_prices
+      WHERE product_id = ? AND trade_date BETWEEN ? AND ?
+      GROUP BY product_id
+    `).bind(yearMonth, productId, yearMonth, productId, monthStart, monthEnd),
 
-  // 若该月已无数据，清理残留的月均价记录
-  await env.DB.prepare(`
-    DELETE FROM monthly_averages
-    WHERE product_id = ? AND year_month = ?
-      AND NOT EXISTS (
-        SELECT 1 FROM daily_prices
-        WHERE product_id = ? AND strftime('%Y-%m', trade_date) = ?
-      )
-  `).bind(productId, yearMonth, productId, yearMonth).run();
+    // 若该月已无数据，清理残留的月均价记录
+    env.DB.prepare(`
+      DELETE FROM monthly_averages
+      WHERE product_id = ? AND year_month = ?
+        AND NOT EXISTS (
+          SELECT 1 FROM daily_prices
+          WHERE product_id = ? AND trade_date BETWEEN ? AND ?
+        )
+    `).bind(productId, yearMonth, productId, monthStart, monthEnd)
+  ];
 }
 
-// 获取产品列表
+async function updateMonthlyAverage(productId, tradeDate, env) {
+  if (!productId || !tradeDate) return;
+  // 重算与残留清理合并成一次 batch，减少一次数据库往返
+  await env.DB.batch(buildMonthlyAverageStatements(env, productId, tradeDate));
+}
+
+// 获取产品列表（首屏引导接口：同时返回站点设置与最新更新时间，
+// 让首屏只发一个请求即可完成渲染）
 async function handleGetProducts(env) {
   try {
-    // 一次查询同时返回记录数、最新日期与可用年份，前端无需再拉取全量历史提取年份
-    const [{ results }, homepageProduct] = await Promise.all([
+    const [{ results }, settings] = await Promise.all([
       env.DB.prepare(`
         SELECT 
           p.id, p.code, p.name, p.unit, p.spec, p.sort_order,
           COUNT(d.id) as record_count,
           MAX(d.trade_date) as latest_trade_date,
+          MAX(d.updated_at) as latest_update,
           GROUP_CONCAT(DISTINCT substr(d.trade_date, 1, 4)) as years
         FROM products p
         LEFT JOIN daily_prices d ON p.id = d.product_id
@@ -991,11 +1006,19 @@ async function handleGetProducts(env) {
         GROUP BY p.id
         ORDER BY p.sort_order
       `).all(),
-      getSetting('homepage_product', env)
+      fetchPublicSettings(env)
     ]);
 
     // 年份降序数组，供前台按年份懒加载历史数据
+    let lastUpdate = null;
+    let lastTradeDate = null;
     const products = results.map(product => {
+      if (product.latest_update && (!lastUpdate || product.latest_update > lastUpdate)) {
+        lastUpdate = product.latest_update;
+      }
+      if (product.latest_trade_date && (!lastTradeDate || product.latest_trade_date > lastTradeDate)) {
+        lastTradeDate = product.latest_trade_date;
+      }
       const years = product.years
         ? String(product.years)
             .split(',')
@@ -1006,10 +1029,29 @@ async function handleGetProducts(env) {
       return Object.assign({}, product, { years });
     });
     
-    return jsonResponse({ products, homepage_product: homepageProduct || '' }, 200, true);
+    return jsonResponse({
+      products,
+      homepage_product: settings.homepage_product || '',
+      settings,
+      last_update: lastUpdate,
+      last_trade_date: lastTradeDate
+    }, 200, true, 60);
   } catch (error) {
     return serverError('数据库查询失败', error, true);
   }
+}
+
+// 首屏需要的公开设置：一次查询取回，避免逐项查询
+async function fetchPublicSettings(env) {
+  const keys = ['frontend_title', 'data_source_name', 'data_source_url', 'homepage_product'];
+  const { results } = await env.DB.prepare(
+    'SELECT key, value FROM system_settings WHERE key IN (?, ?, ?, ?)'
+  ).bind(...keys).all();
+
+  const settings = {};
+  keys.forEach(key => { settings[key] = null; });
+  (results || []).forEach(row => { settings[row.key] = row.value; });
+  return settings;
 }
 
 // 涨跌幅(%) 统一计算表达式：多个查询共用，避免重复维护
@@ -1048,7 +1090,7 @@ async function handleGetLatestPrices(env, url) {
       LIMIT ?
     `).bind(productCode, limit).all();
     
-    return jsonResponse({ prices: results }, 200, true);
+    return jsonResponse({ prices: results }, 200, true, 60);
   } catch (error) {
     return serverError('获取最新报价失败', error, true);
   }
@@ -1100,7 +1142,19 @@ async function handleGetPriceHistory(env, url) {
       ORDER BY d.trade_date DESC
     `).bind(productCode, startDateStr, endDateStr).all();
     
-    return jsonResponse({ history: results }, 200, true);
+    // compact=1：返回 { cols, rows } 的紧凑格式，去掉前端不用的 source/monthly_avg，
+    // 一年的数据从约 34KB 降到约 10KB；未传该参数时保持原有结构以兼容外部调用方
+    if (url.searchParams.get('compact') === '1') {
+      return jsonResponse({
+        compact: 1,
+        cols: ['trade_date', 'low_price', 'high_price', 'avg_price', 'change_value'],
+        rows: results.map(function(r) {
+          return [r.trade_date, r.low_price, r.high_price, r.avg_price, r.change_value];
+        })
+      }, 200, true, 60);
+    }
+
+    return jsonResponse({ history: results }, 200, true, 60);
   } catch (error) {
     return serverError('获取历史价格失败', error, true);
   }
@@ -1137,7 +1191,7 @@ async function handleGetPriceRange(env, url) {
       avg_price: row ? row.avg_price : null,
       high_price: row ? row.high_price : null,
       low_price: row ? row.low_price : null
-    }, 200, true);
+    }, 200, true, 60);
   } catch (error) {
     return serverError('区间均价计算失败', error, true);
   }
@@ -1166,7 +1220,7 @@ async function handleGetMonthlyAverages(env, url) {
       LIMIT ?
     `).bind(productCode, yearMonth, limit).all();
     
-    return jsonResponse({ monthly: results }, 200, true);
+    return jsonResponse({ monthly: results }, 200, true, 60);
   } catch (error) {
     return serverError('获取月均价失败', error, true);
   }
@@ -1298,58 +1352,66 @@ async function handleAdminSetup(request, env) {
   }
 }
 
-// 登录限流（D1 持久化，跨 isolate 与冷启动共享；生产建议叠加 Cloudflare Rate Limiting）
+// 登录限流（D1 持久化，跨 isolate 与冷启动共享；叠加 wrangler.toml 的 [[ratelimits]] 边缘限流）
+// 两个维度：账号 + IP（挡住针对单一账号的爆破）、纯 IP（挡住同一 IP 轮换用户名扫号）
 const LOGIN_MAX_ATTEMPTS = 5;
+const LOGIN_IP_MAX_ATTEMPTS = 20;
 const LOGIN_WINDOW_MS = 15 * 60 * 1000;
 
-// 读取窗口内的失败次数（窗口外自动清理并视为 0）
-async function getLoginAttempts(key, env) {
-  const now = Date.now();
-  const row = await env.DB.prepare(
-    'SELECT count, reset_at FROM login_attempts WHERE attempt_key = ?'
-  ).bind(key).first();
-  if (!row) return 0;
-  if (now - row.reset_at >= LOGIN_WINDOW_MS) {
-    await env.DB.prepare('DELETE FROM login_attempts WHERE attempt_key = ?').bind(key).run();
-    return 0;
-  }
-  return row.count;
-}
+// 用户名不存在时用来「陪跑」一次 PBKDF2 的占位哈希。
+// PBKDF2 10 万次迭代是登录耗时的主体，若用户不存在就提前返回，
+// 攻击者可用响应时间判断用户名是否真实存在；这里保证两条分支计算量一致。
+const DUMMY_PASSWORD_HASH = 'pbkdf2:' + '0'.repeat(32) + ':' + '0'.repeat(64);
 
-// 记录一次登录失败（首次或窗口过期时重置计数，窗口内累加）
-async function recordLoginFailure(key, now, env) {
-  const row = await env.DB.prepare(
-    'SELECT count, reset_at FROM login_attempts WHERE attempt_key = ?'
-  ).bind(key).first();
-
-  let count = 1;
-  let resetAt = now;
-  if (row && (now - row.reset_at) < LOGIN_WINDOW_MS) {
-    count = row.count + 1;
-    resetAt = row.reset_at; // 窗口内保持原始 reset_at，避免窗口滑动
-  }
-
-  await env.DB.prepare(`
+// 原子地「检查 + 累加」一次登录尝试：窗口过期时重置为 1，返回本窗口内（含本次）累计次数。
+// 多个键合并成一次 batch，同一请求只付一次往返；单条 UPSERT 保证并发下不丢计数。
+// 返回 Map<key, { count, resetAt }>，resetAt 为当前窗口起始毫秒时间戳（用于计算 Retry-After）。
+async function bumpLoginAttempts(keys, now, env) {
+  const statements = keys.map(key => env.DB.prepare(`
     INSERT INTO login_attempts (attempt_key, count, reset_at)
-    VALUES (?, ?, ?)
-    ON CONFLICT(attempt_key) DO UPDATE SET count = excluded.count, reset_at = excluded.reset_at
-  `).bind(key, count, resetAt).run();
+    VALUES (?, 1, ?)
+    ON CONFLICT(attempt_key) DO UPDATE SET
+      count = CASE WHEN ? - reset_at >= ? THEN 1 ELSE count + 1 END,
+      reset_at = CASE WHEN ? - reset_at >= ? THEN ? ELSE reset_at END
+    RETURNING count, reset_at
+  `).bind(key, now, now, LOGIN_WINDOW_MS, now, LOGIN_WINDOW_MS, now));
+
+  const stats = new Map();
+  const results = await env.DB.batch(statements);
+  const missing = [];
+  keys.forEach((key, i) => {
+    const row = results && results[i] && results[i].results ? results[i].results[0] : null;
+    if (row) stats.set(key, { count: row.count, resetAt: row.reset_at });
+    else missing.push(key);
+  });
+  // 兜底：若运行时没有回传 batch 内 RETURNING 的结果，回查一次真实计数，
+  // 避免把「已超限」误判成第 1 次，导致限流静默失效。
+  if (missing.length > 0) {
+    const { results: rows } = await env.DB.prepare(
+      `SELECT attempt_key, count, reset_at FROM login_attempts WHERE attempt_key IN (${placeholders(missing)})`
+    ).bind(...missing).all();
+    for (const key of missing) stats.set(key, { count: 1, resetAt: now });
+    for (const row of rows || []) {
+      stats.set(row.attempt_key, { count: row.count, resetAt: row.reset_at });
+    }
+  }
+  return stats;
 }
 
-// 登录成功后清除该账号的失败计数
-async function clearLoginAttempts(key, env) {
-  await env.DB.prepare('DELETE FROM login_attempts WHERE attempt_key = ?').bind(key).run();
-}
-
-// 清理已过窗口期的限流记录：失败计数只在登录时按 key 惰性清理，
-// 未再次尝试的 key 会永久残留，attempt_key = username|ip 可能被大量伪造组合撑大表。
-// 由定时任务调用，删除所有 reset_at 已超出窗口的记录。
-async function cleanupExpiredLoginAttempts(env) {
-  const threshold = Date.now() - LOGIN_WINDOW_MS;
-  const result = await env.DB.prepare(
-    'DELETE FROM login_attempts WHERE reset_at < ?'
-  ).bind(threshold).run();
-  return result.meta.changes || 0;
+// 前置限流：Cloudflare Rate Limiting binding（见 wrangler.toml 的 [[ratelimits]]）。
+// 放在 PBKDF2 之前，用边缘计数器先挡掉高频 IP，避免每次尝试都白跑 10 万次哈希迭代。
+// 本地 dev 或环境未配置该 binding 时自动跳过；限流服务异常不影响登录。
+async function checkCloudflareLoginLimit(ip, env) {
+  if (!env.LOGIN_RATELIMIT || typeof env.LOGIN_RATELIMIT.limit !== 'function') {
+    return { limited: false };
+  }
+  try {
+    const { success } = await env.LOGIN_RATELIMIT.limit({ key: 'login:' + ip });
+    if (!success) return { limited: true, retryAfter: 60 };
+  } catch (error) {
+    console.error('[login] 限流检查失败', error && error.message);
+  }
+  return { limited: false };
 }
 
 // 管理员登录
@@ -1366,13 +1428,31 @@ async function handleAdminLogin(request, env) {
       return jsonResponse({ error: '用户名和密码不能为空' }, 400);
     }
 
-    // 限流检查
+    // 限流检查：先走边缘计数（不碰数据库、不跑 PBKDF2），再做 D1 的「账号 + IP」双维度计数
     const ip = request.headers.get('CF-Connecting-IP') || 'unknown';
-    const attemptKey = String(username) + '|' + ip;
+    const gate = await checkCloudflareLoginLimit(ip, env);
+    if (gate.limited) {
+      return jsonResponse(
+        { error: '登录尝试过于频繁，请稍后再试', retryAfter: gate.retryAfter },
+        429, false, 0, { 'Retry-After': String(gate.retryAfter) }
+      );
+    }
+
+    const accountKey = String(username) + '|' + ip;
+    const ipKey = 'ip:' + ip;
     const now = Date.now();
-    const attemptCount = await getLoginAttempts(attemptKey, env);
-    if (attemptCount >= LOGIN_MAX_ATTEMPTS) {
-      return jsonResponse({ error: '登录尝试过于频繁，请稍后再试' }, 429);
+    // 先自增再判断：账号 5 次、同 IP 20 次以内允许，超出即拦截
+    const attemptStats = await bumpLoginAttempts([accountKey, ipKey], now, env);
+    const accountStat = attemptStats.get(accountKey) || { count: 1, resetAt: now };
+    const ipStat = attemptStats.get(ipKey) || { count: 1, resetAt: now };
+    if (accountStat.count > LOGIN_MAX_ATTEMPTS || ipStat.count > LOGIN_IP_MAX_ATTEMPTS) {
+      const blocking = accountStat.count > LOGIN_MAX_ATTEMPTS ? accountStat : ipStat;
+      // 剩余等待时间：窗口起始 + 窗口长度 - 当前时间
+      const retryAfter = Math.max(1, Math.ceil((blocking.resetAt + LOGIN_WINDOW_MS - now) / 1000));
+      return jsonResponse(
+        { error: '登录尝试过于频繁，请稍后再试', retryAfter },
+        429, false, 0, { 'Retry-After': String(retryAfter) }
+      );
     }
 
     // 查询用户
@@ -1381,20 +1461,21 @@ async function handleAdminLogin(request, env) {
     ).bind(username).first();
     
     // 验证密码（PBKDF2-SHA256）
-    const isValid = user ? await verifyPassword(password, user.password_hash) : false;
-    
-    if (!user || !isValid) {
-      await recordLoginFailure(attemptKey, now, env);
+    // 用户不存在或历史哈希格式异常时，用占位哈希跑一次等价的 PBKDF2 计算，
+    // 让两条分支耗时一致，避免通过响应时间枚举用户名。
+    const hasUsableHash = Boolean(user && user.password_hash && user.password_hash.startsWith('pbkdf2:'));
+    const isValid = await verifyPassword(password, hasUsableHash ? user.password_hash : DUMMY_PASSWORD_HASH);
+
+    if (!hasUsableHash || !isValid) {
+      // 失败次数已在进入时自增，无需再次写库
       return jsonResponse({ error: '用户名或密码错误' }, 401);
     }
 
-    // 登录成功，清除该账号的失败计数
-    await clearLoginAttempts(attemptKey, env);
-    
-    // 更新最后登录时间
-    await env.DB.prepare(
-      'UPDATE admin_users SET last_login = CURRENT_TIMESTAMP WHERE id = ?'
-    ).bind(user.id).run();
+    // 登录成功：清除失败计数（账号 + IP）+ 更新最后登录时间，合并为一次 batch
+    await env.DB.batch([
+      env.DB.prepare('DELETE FROM login_attempts WHERE attempt_key IN (?, ?)').bind(accountKey, ipKey),
+      env.DB.prepare('UPDATE admin_users SET last_login = CURRENT_TIMESTAMP WHERE id = ?').bind(user.id)
+    ]);
     
     // 生成 token
     const token = await generateToken(user.id, user.username, env);
@@ -1580,6 +1661,16 @@ function placeholders(items) {
   return items.map(() => '?').join(',');
 }
 
+// 辅助函数：把数组按固定长度切块。D1 单条语句最多 100 个绑定参数，
+// 批量 IN / VALUES 查询必须先分块，否则大批量推送会直接超出上限报错。
+function chunk(items, size) {
+  const chunks = [];
+  for (let i = 0; i < items.length; i += size) {
+    chunks.push(items.slice(i, i + size));
+  }
+  return chunks;
+}
+
 // 解析 id 数组：转为整数并过滤掉非法值与非正数
 function parseIdList(raw) {
   return (Array.isArray(raw) ? raw : []).map(id => parseInt(id)).filter(id => id > 0);
@@ -1647,40 +1738,39 @@ function parsePriceRange(rawLow, rawHigh) {
   return { lowPrice, highPrice };
 }
 
+// 上游未提供涨跌额（缺失或非法）时需要按上一交易日自动计算
+function needsAutoChangeValue(rawChangeValue) {
+  if (rawChangeValue === undefined || rawChangeValue === null || rawChangeValue === '') return true;
+  return isNaN(parseFloat(rawChangeValue));
+}
+
 // 辅助函数：解析并自动计算涨跌值（未传入或格式错误时自动根据上一交易日推算）
-async function resolveChangeValue(rawChangeValue, productId, tradeDate, avgPrice, env) {
-  let changeValue = rawChangeValue;
-  let shouldAutoCalculate = false;
-
-  if (changeValue === undefined || changeValue === null || changeValue === '') {
-    shouldAutoCalculate = true;
-    changeValue = 0;
-  } else {
-    changeValue = parseFloat(changeValue);
-    if (isNaN(changeValue)) {
-      shouldAutoCalculate = true;
-      changeValue = 0;
-    }
+// prevPriceCache 可选：预取批量场景下按 「productId|tradeDate」 命中时不再查库
+async function resolveChangeValue(rawChangeValue, productId, tradeDate, avgPrice, env, prevPriceCache) {
+  if (needsAutoChangeValue(rawChangeValue)) {
+    return await calculateChangeValue(productId, tradeDate, avgPrice, env, prevPriceCache);
   }
-
-  if (shouldAutoCalculate) {
-    changeValue = await calculateChangeValue(productId, tradeDate, avgPrice, env);
-  }
-
-  return changeValue;
+  return parseFloat(rawChangeValue);
 }
 
 // 辅助函数：根据上一交易日自动计算涨跌额
-async function calculateChangeValue(productId, tradeDate, avgPrice, env) {
+async function calculateChangeValue(productId, tradeDate, avgPrice, env, prevPriceCache) {
   try {
-    const prevRecord = await env.DB.prepare(`
-      SELECT avg_price FROM daily_prices
-      WHERE product_id = ? AND trade_date < ?
-      ORDER BY trade_date DESC LIMIT 1
-    `).bind(productId, tradeDate).first();
+    const cacheKey = productId + '|' + tradeDate;
+    let prevPrice;
+    if (prevPriceCache && prevPriceCache.has(cacheKey)) {
+      prevPrice = prevPriceCache.get(cacheKey);
+    } else {
+      const prevRecord = await env.DB.prepare(`
+        SELECT avg_price FROM daily_prices
+        WHERE product_id = ? AND trade_date < ?
+        ORDER BY trade_date DESC LIMIT 1
+      `).bind(productId, tradeDate).first();
+      prevPrice = prevRecord ? prevRecord.avg_price : null;
+    }
 
-    if (prevRecord && prevRecord.avg_price !== null) {
-      return Math.round((avgPrice - prevRecord.avg_price) * 100) / 100;
+    if (prevPrice !== null && prevPrice !== undefined) {
+      return Math.round((avgPrice - prevPrice) * 100) / 100;
     }
   } catch (error) {
     console.error('自动计算涨跌额失败:', error.message);
@@ -1713,7 +1803,9 @@ async function insertDailyPrice(env, params) {
   }
 
   // 月均价由应用层统一维护（触发器已移除），插入成功后重算该产品该月
-  await updateMonthlyAverage(params.productId, params.tradeDate, env);
+  if (!params.deferRecalc) {
+    await updateMonthlyAverage(params.productId, params.tradeDate, env);
+  }
 
   return { success: true, id: insertResult.meta.last_row_id };
 }
@@ -1728,7 +1820,10 @@ function toDbBoolean(value) {
 }
 
 // 辅助函数：获取 JWT 签名密钥（不存在则自动生成并持久化）
+// 密钥创建后不会变化，按 isolate 缓存，避免每个已鉴权请求都查一次 system_settings
+let cachedJwtSecret = null;
 async function getJwtSecret(env) {
+  if (cachedJwtSecret) return cachedJwtSecret;
   let secret = await getSetting('jwt_secret', env);
   if (!secret) {
     const randomBytes = new Uint8Array(32);
@@ -1736,22 +1831,28 @@ async function getJwtSecret(env) {
     secret = arrayBufferToBase64Url(randomBytes.buffer);
     await setSetting('jwt_secret', secret, '管理后台登录 token 签名密钥', env);
   }
+  cachedJwtSecret = secret;
   return secret;
 }
 
 // 辅助函数：HMAC-SHA256 签名 token
+// CryptoKey 按 secret 缓存到 isolate，已鉴权请求不再重复 importKey
+let cachedHmacKey = null;
+let cachedHmacKeySecret = null;
 async function signToken(payloadB64, secret) {
-  const encoder = new TextEncoder();
-  const keyData = encoder.encode(secret);
-  const msgData = encoder.encode(payloadB64);
-  const cryptoKey = await crypto.subtle.importKey(
-    'raw',
-    keyData,
-    { name: 'HMAC', hash: 'SHA-256' },
-    false,
-    ['sign']
-  );
-  const signature = await crypto.subtle.sign('HMAC', cryptoKey, msgData);
+  if (!cachedHmacKey || cachedHmacKeySecret !== secret) {
+    const keyData = new TextEncoder().encode(secret);
+    cachedHmacKey = await crypto.subtle.importKey(
+      'raw',
+      keyData,
+      { name: 'HMAC', hash: 'SHA-256' },
+      false,
+      ['sign']
+    );
+    cachedHmacKeySecret = secret;
+  }
+  const msgData = new TextEncoder().encode(payloadB64);
+  const signature = await crypto.subtle.sign('HMAC', cachedHmacKey, msgData);
   return arrayBufferToBase64Url(signature);
 }
 
@@ -1868,27 +1969,47 @@ async function handleWebhook(request, env) {
       await logWebhook(env, config.id, 'success', 0, JSON.stringify(payload).slice(0, 500), null);
       return webhookResponse(true, null, null, '成功处理 0 条数据', 200);
     }
-    
-    // 逐条处理
+
+    // 预取产品与上一交易日收盘价：各一次查询，替代循环内逐条查库
+    const { productCache, prevPriceCache } = await prefetchWebhookContext(records, config, env);
+
+    // 逐条处理（月均价延后到循环外统一重算，避免每条记录都打一次数据库）
     let successCount = 0;
     const errors = [];
     const successIds = [];
     const successTargets = [];
-    
+    const recalcKeys = new Set();
+
     for (let i = 0; i < records.length; i++) {
       const record = records[i];
       try {
-        const result = await saveWebhookPriceRecord(record, config, env);
+        const result = await saveWebhookPriceRecord(record, config, env, {
+          deferRecalc: true,
+          productCache,
+          prevPriceCache
+        });
         if (result.success) {
           successCount++;
           if (result.id) successIds.push(result.id);
           if (result.productCode) successTargets.push(result.productCode);
+          // 同一产品同一个月只重算一次
+          recalcKeys.add(result.productId + '|' + String(result.tradeDate).slice(0, 7));
         } else {
           errors.push(`第${i + 1}条: ${result.error}`);
         }
       } catch (error) {
         errors.push(`第${i + 1}条: ${error.message}`);
       }
+    }
+
+    // 批量重算受影响的月均价：所有语句合并成一次 batch 往返
+    if (recalcKeys.size > 0) {
+      const statements = [];
+      recalcKeys.forEach(key => {
+        const [productId, yearMonth] = key.split('|');
+        statements.push(...buildMonthlyAverageStatements(env, Number(productId), yearMonth + '-01'));
+      });
+      await env.DB.batch(statements);
     }
     
     const status = errors.length === 0 ? 'success' : (successCount > 0 ? 'partial' : 'failed');
@@ -1922,22 +2043,98 @@ async function handleWebhook(request, env) {
   }
 }
 
-// 保存单条 webhook 推送的价格数据
-async function saveWebhookPriceRecord(record, config, env) {
-  if (!record || typeof record !== 'object') {
-    return { success: false, error: '价格数据格式错误' };
-  }
-
-  // 字段提取
+// 从推送记录中提取产品代码与日期字段（预取与逐条保存共用，避免解析规则漂移）
+function extractWebhookKeys(record, config) {
   let productCode = getFieldByPath(record, config.product_code_field || 'product_code');
   if (!productCode && config.target_product_code) {
     productCode = config.target_product_code;
   }
-  
   // 采集日期（当天日期）：优先取配置字段，缺失或非法时回退北京时间当天
   const collectDate = normalizeDate(getFieldByPath(record, config.collect_date_field || 'collect_date')) || chinaToday();
   // 数据日期（交易日）：支持 MM-DD，按采集日期年份补全
   const tradeDate = normalizeDate(getFieldByPath(record, config.trade_date_field || 'trade_date'), collectDate);
+  return { productCode, collectDate, tradeDate };
+}
+
+// 批量预取 Webhook 上下文：
+//   1) 一次（或分块几次）查询取回本批涉及的全部产品；
+//   2) 按 (product_id, trade_date) 去重后，一次性预取每条记录的上一交易日收盘价。
+// 补录多条不同交易日时同样走预取：每条都以「库中该日期之前最近一条」为基准，
+// 同一产品同一天推送多条时共用同一个前值（重复记录会被唯一键跳过）。
+async function prefetchWebhookContext(records, config, env) {
+  const productCache = new Map();
+  const prevPriceCache = new Map();
+
+  const items = [];
+  const codes = new Set();
+  for (const record of records) {
+    if (!record || typeof record !== 'object') {
+      items.push(null);
+      continue;
+    }
+    const keys = extractWebhookKeys(record, config);
+    items.push({
+      ...keys,
+      needsAuto: needsAutoChangeValue(getFieldByPath(record, config.change_value_field || 'change_value'))
+    });
+    if (keys.productCode !== undefined && keys.productCode !== null && keys.productCode !== '') {
+      codes.add(String(keys.productCode));
+    }
+  }
+  if (codes.size === 0) return { productCache, prevPriceCache };
+
+  const codeList = [...codes];
+  // 1 参数/个 → 每块 100 个，正好卡在 D1 的 100 个绑定参数上限内
+  for (const group of chunk(codeList, 100)) {
+    const { results: products } = await env.DB.prepare(
+      `SELECT id, code FROM products WHERE code IN (${placeholders(group)})`
+    ).bind(...group).all();
+    for (const product of products || []) productCache.set(String(product.code), product);
+  }
+  // 不存在的产品也写入 null，避免循环里再逐条查一次
+  for (const code of codeList) {
+    if (!productCache.has(code)) productCache.set(code, null);
+  }
+
+  const pairMap = new Map();
+  for (const item of items) {
+    if (!item || !item.needsAuto || !item.tradeDate) continue;
+    if (item.productCode === undefined || item.productCode === null || item.productCode === '') continue;
+    const product = productCache.get(String(item.productCode));
+    if (!product) continue;
+    pairMap.set(product.id + '|' + item.tradeDate, [product.id, item.tradeDate]);
+  }
+  const pairs = [...pairMap.values()];
+  if (pairs.length === 0) return { productCache, prevPriceCache };
+
+  // 2 参数/对 → 每块 50 对，保证不超过 100 个绑定参数
+  for (const group of chunk(pairs, 50)) {
+    const values = group.map(() => '(?, ?)').join(', ');
+    const { results } = await env.DB.prepare(`
+      WITH input(pid, td) AS (VALUES ${values})
+      SELECT i.pid, i.td,
+        (SELECT dp.avg_price FROM daily_prices dp
+         WHERE dp.product_id = i.pid AND dp.trade_date < i.td
+         ORDER BY dp.trade_date DESC LIMIT 1) AS prev_price
+      FROM input i
+    `).bind(...group.flat()).all();
+    for (const row of results || []) {
+      prevPriceCache.set(row.pid + '|' + row.td, row.prev_price);
+    }
+  }
+  return { productCache, prevPriceCache };
+}
+
+// 保存单条 webhook 推送的价格数据
+// options.deferRecalc 为 true 时不立即重算月均价，由调用方合并成一次批量写入
+// options.productCache / prevPriceCache 为批量预取结果，缺省时退化为逐条查询
+async function saveWebhookPriceRecord(record, config, env, options = {}) {
+  if (!record || typeof record !== 'object') {
+    return { success: false, error: '价格数据格式错误' };
+  }
+
+  // 字段提取（与预取逻辑共用 extractWebhookKeys，避免两处解析规则漂移）
+  const { productCode, collectDate, tradeDate } = extractWebhookKeys(record, config);
   const priceRange = parsePriceRange(
     getFieldByPath(record, config.low_price_field || 'low_price'),
     getFieldByPath(record, config.high_price_field || 'high_price')
@@ -1958,15 +2155,18 @@ async function saveWebhookPriceRecord(record, config, env) {
 
   avgPrice = resolveAvgPrice(avgPrice, lowPrice, highPrice, { roundProvided: false }).avgPrice;
 
-  // 查询产品
-  const product = await getProductByCode(env, productCode);
+  // 查询产品：批量预取命中时直接使用缓存（含“产品不存在”的 null 结果）
+  const productCacheKey = String(productCode);
+  const product = options.productCache && options.productCache.has(productCacheKey)
+    ? options.productCache.get(productCacheKey)
+    : await getProductByCode(env, productCode);
 
   if (!product) {
     return { success: false, error: `产品 ${productCode} 不存在` };
   }
 
   // 涨跌幅：未传入或格式错误时根据上一交易日自动计算
-  const changeValue = await resolveChangeValue(rawChangeValue, product.id, tradeDate, avgPrice, env);
+  const changeValue = await resolveChangeValue(rawChangeValue, product.id, tradeDate, avgPrice, env, options.prevPriceCache);
   
   // 写入数据库（原子去重：同一产品同一天已有记录则跳过，不允许重复录入）
   const result = await insertDailyPrice(env, {
@@ -1978,9 +2178,14 @@ async function saveWebhookPriceRecord(record, config, env) {
     avgPrice,
     changeValue,
     source: 'webhook',
-    remark: 'Webhook 自动采集'
+    remark: 'Webhook 自动采集',
+    deferRecalc: options.deferRecalc
   });
-  if (result.success) result.productCode = productCode;
+  if (result.success) {
+    result.productCode = productCode;
+    result.productId = product.id;
+    result.tradeDate = tradeDate;
+  }
   return result;
 }
 
@@ -2173,27 +2378,34 @@ function getFieldByPath(obj, path) {
 // ==================== 推送设置（微信 Webhook 播报） ====================
 
 // 报价表/Webhook 配置表的部署兜底迁移（每个 Worker isolate 仅执行一次）
-let priceSchemaReady = false;
+// 缓存 Promise 而不是布尔值：并发请求在迁移完成前会复用同一次执行，
+// 避免冷启动瞬间多个请求各跑一遍 6 条 DDL
+let priceSchemaPromise = null;
 async function ensurePriceSchema(env) {
-  if (priceSchemaReady) return;
-  try {
-    // daily_prices 增加采集日期（当天日期）列，已存在时忽略
-    await addColumnIfMissing(env, 'daily_prices', 'collect_date', 'DATE');
-    // webhook_configs 增加采集日期字段路径列，已存在时忽略
-    await addColumnIfMissing(env, 'webhook_configs', 'collect_date_field', "TEXT DEFAULT 'collect_date'");
-    // 移除历史遗留触发器：月均价改由应用层 updateMonthlyAverage 单一维护，
-    // updated_at 由应用层 UPDATE 语句显式写入，二者均不再依赖触发器
-    for (const trigger of [
-      'update_monthly_avg_after_daily',
-      'update_monthly_avg_after_update',
-      'update_monthly_avg_after_delete',
-      'update_daily_prices_timestamp'
-    ]) {
-      await env.DB.prepare(`DROP TRIGGER IF EXISTS ${trigger}`).run();
-    }
-    priceSchemaReady = true;
-  } catch (e) {
-    console.error('ensurePriceSchema 失败:', e.message);
+  if (!priceSchemaPromise) {
+    priceSchemaPromise = migratePriceSchema(env).catch(e => {
+      console.error('ensurePriceSchema 失败:', e.message);
+      // 迁移失败不缓存结果，下次请求可重试
+      priceSchemaPromise = null;
+    });
+  }
+  return priceSchemaPromise;
+}
+
+async function migratePriceSchema(env) {
+  // daily_prices 增加采集日期（当天日期）列，已存在时忽略
+  await addColumnIfMissing(env, 'daily_prices', 'collect_date', 'DATE');
+  // webhook_configs 增加采集日期字段路径列，已存在时忽略
+  await addColumnIfMissing(env, 'webhook_configs', 'collect_date_field', "TEXT DEFAULT 'collect_date'");
+  // 移除历史遗留触发器：月均价改由应用层 updateMonthlyAverage 单一维护，
+  // updated_at 由应用层 UPDATE 语句显式写入，二者均不再依赖触发器
+  for (const trigger of [
+    'update_monthly_avg_after_daily',
+    'update_monthly_avg_after_update',
+    'update_monthly_avg_after_delete',
+    'update_daily_prices_timestamp'
+  ]) {
+    await env.DB.prepare(`DROP TRIGGER IF EXISTS ${trigger}`).run();
   }
 }
 
@@ -2516,22 +2728,27 @@ async function executePush(env, configId, key) {
   const productIds = parsePushProductIds(config);
   if (productIds.length === 0) return { success: false, status: 400, error: '推送配置未绑定产品' };
 
-  // 逐个产品获取最新一条报价（每个产品均推送其最新价格）
-  const records = [];
-  for (const pid of productIds) {
-    const record = await env.DB.prepare(`
-      SELECT dp.trade_date, dp.avg_price, dp.change_value,
-             pr.name AS product_name, pr.unit AS product_unit
+  // 一次查询取回所有绑定产品的最新一条报价（窗口函数按产品分组取最新），
+  // 原来逐个产品各打一次数据库，产品多了推送耗时线性增长
+  const { results: rows } = await env.DB.prepare(`
+    SELECT product_id, trade_date, avg_price, change_value, product_name, product_unit
+    FROM (
+      SELECT dp.product_id, dp.trade_date, dp.avg_price, dp.change_value,
+             pr.name AS product_name, pr.unit AS product_unit,
+             ROW_NUMBER() OVER (PARTITION BY dp.product_id ORDER BY dp.trade_date DESC) AS rn
       FROM daily_prices dp
       JOIN products pr ON pr.id = dp.product_id
-      WHERE dp.product_id = ?
-      ORDER BY dp.trade_date DESC
-      LIMIT 1
-    `).bind(pid).first();
-    if (record) {
-      record.product_id = pid;
-      records.push(record);
-    }
+      WHERE dp.product_id IN (${placeholders(productIds)})
+    )
+    WHERE rn = 1
+  `).bind(...productIds).all();
+
+  // 按配置中的产品顺序还原推送内容顺序
+  const byProductId = new Map((rows || []).map(r => [r.product_id, r]));
+  const records = [];
+  for (const pid of productIds) {
+    const record = byProductId.get(pid);
+    if (record) records.push(record);
   }
 
   if (records.length === 0) return { success: false, status: 400, error: '所有绑定产品均无报价数据' };
@@ -2652,21 +2869,96 @@ const CORS_HEADERS = {
 };
 
 // 辅助函数：返回 JSON 响应（cors=true 用于公开/跨域接口，默认 false 仅同源）
-function jsonResponse(data, status = 200, cors = false) {
+// maxAge > 0 时允许浏览器缓存该响应若干秒（仅用于公开只读接口）
+// extraHeaders 用于附加自定义响应头（如 429 的 Retry-After）
+function jsonResponse(data, status = 200, cors = false, maxAge = 0, extraHeaders = null) {
   const headers = {
     'Content-Type': 'application/json; charset=utf-8',
-    // 所有 API 响应均为动态数据，禁用缓存避免返回陈旧结果
-    'Cache-Control': 'no-store, no-cache, must-revalidate',
+    // 默认禁用缓存避免返回陈旧结果；公开只读接口按 maxAge 缓存，
+    // 数据每 5 分钟采集一次，短缓存既不影响准确性又能省掉回访时的数据库查询
+    'Cache-Control': maxAge > 0
+      ? `public, max-age=${maxAge}, s-maxage=${maxAge}, stale-while-revalidate=300`
+      : 'no-store, no-cache, must-revalidate',
   };
   if (cors) {
     Object.assign(headers, CORS_HEADERS);
   }
+  if (extraHeaders) {
+    Object.assign(headers, extraHeaders);
+  }
   return new Response(JSON.stringify(data), { status, headers });
 }
 
-// 辅助函数：返回 500 服务器错误（details 携带原始异常信息，便于排查）
+// 公开只读接口的边缘缓存：同一 URL 在 TTL 内直接复用响应，省掉重复的 D1 查询。
+// 仅在 GET 且运行环境提供 caches.default 时启用（本地 dev 自动降级为直连）。
+// 失败（如 cache API 异常）时回退为直接查询，不影响功能。
+// 缓存键参数白名单：只保留真正影响查询结果的参数。
+// 直接用完整 URL 做缓存键时，?t=1699999999 这类无意义参数、参数顺序差异、
+// 大小写不同的键名都会各占一份缓存，命中率被显著拉低。
+// 未列出的路径保持完整 URL（避免误伤未预期的查询语义）。
+const EDGE_CACHE_KEY_PARAMS = {
+  '/api/price/settings': [],
+  '/api/price/products': [],
+  '/api/price/last-update': [],
+  '/api/price/latest': ['product', 'limit'],
+  '/api/price/history': ['product', 'year', 'days', 'compact'],
+  '/api/price/range': ['product', 'start', 'end'],
+  '/api/price/monthly': ['product', 'month', 'limit']
+};
+
+function buildEdgeCacheKey(url) {
+  const allowed = EDGE_CACHE_KEY_PARAMS[url.pathname];
+  if (!allowed) return url.toString();
+  const params = new URLSearchParams();
+  for (const key of [...allowed].sort()) {
+    const value = url.searchParams.get(key);
+    if (value !== null && value !== '') params.set(key, value);
+  }
+  const query = params.toString();
+  return url.origin + url.pathname + (query ? '?' + query : '');
+}
+
+async function withEdgeCache(request, ctx, maxAge, loader) {
+  if (request.method !== 'GET' || typeof caches === 'undefined' || !caches.default) {
+    return loader();
+  }
+  const cache = caches.default;
+  const cacheKey = new Request(buildEdgeCacheKey(new URL(request.url)), { method: 'GET' });
+
+  try {
+    const hit = await cache.match(cacheKey);
+    if (hit) {
+      const headers = new Headers(hit.headers);
+      headers.set('X-Edge-Cache', 'HIT');
+      return new Response(hit.body, { status: hit.status, headers });
+    }
+  } catch (e) {}
+
+  const response = await loader();
+  if (response.status !== 200) return response;
+
+  try {
+    const headers = new Headers(response.headers);
+    headers.set('Cache-Control', `public, max-age=${maxAge}, s-maxage=${maxAge}, stale-while-revalidate=300`);
+    headers.set('X-Edge-Cache', 'MISS');
+    const body = await response.arrayBuffer();
+    ctx.waitUntil(cache.put(cacheKey, new Response(body, { status: 200, headers })));
+    return new Response(body, { status: 200, headers });
+  } catch (e) {
+    return response;
+  }
+}
+
+// 辅助函数：返回 500 服务器错误
+// 公开接口（cors = true）任何人都能调用，异常文本可能包含 SQL 片段、表名、
+// 绑定值等内部信息，因此只回传通用错误；原始异常统一打到 Worker 日志。
+// 后台接口（已通过鉴权）仍附带 details，便于排障。
 function serverError(message, error, cors = false) {
-  return jsonResponse({ error: message, details: error.message }, 500, cors);
+  console.error('[serverError]', message, error && error.stack ? error.stack : error);
+  if (cors) {
+    return jsonResponse({ error: message }, 500, true);
+  }
+  return jsonResponse({ error: message, details: error && error.message }, 500, false);
 }
 
 // 辅助函数：返回 405 方法不支持
@@ -2724,9 +3016,9 @@ async function serveStaticFile(filename, env, request) {
       return new Response(file.body, { headers });
     }
     
-    return new Response('文件未找到', { status: file.status || 404 });
+    return new Response('文件未找到', { status: file.status || 404, headers: { 'Cache-Control': 'no-store' } });
   } catch (error) {
-    return new Response('服务器错误: ' + error.message, { status: 500 });
+    return new Response('服务器错误: ' + error.message, { status: 500, headers: { 'Cache-Control': 'no-store' } });
   }
 }
 
@@ -3032,11 +3324,16 @@ async function logCronStart(env, jobId, jobName) {
   return result.meta.last_row_id;
 }
 
-// 更新定时任务执行结果
-async function logCronFinish(env, logId, status, message) {
-  await env.DB.prepare(`
-    UPDATE cron_logs SET status = ?, message = ?, finished_at = CURRENT_TIMESTAMP WHERE id = ?
-  `).bind(status, message, logId).run();
+// 结束定时任务日志并同步任务状态：两条 UPDATE 合并为一次 batch，省一次数据库往返
+function cronFinishStatements(env, logId, jobId, status, message, now) {
+  return [
+    env.DB.prepare(`
+      UPDATE cron_logs SET status = ?, message = ?, finished_at = CURRENT_TIMESTAMP WHERE id = ?
+    `).bind(status, message, logId),
+    env.DB.prepare(`
+      UPDATE cron_jobs SET last_run_at = ?, last_run_status = ?, last_run_message = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?
+    `).bind(now.toISOString(), status, message, jobId)
+  ];
 }
 
 // 执行单个定时任务：记录日志、执行、更新任务状态（手动执行 / 批量执行 / 心跳调度共用）
@@ -3045,14 +3342,10 @@ async function runCronJob(env, job) {
   const logId = await logCronStart(env, job.id, job.name);
   try {
     const message = await executeCronTask(job, env);
-    await logCronFinish(env, logId, 'success', message);
-    await env.DB.prepare(`UPDATE cron_jobs SET last_run_at = ?, last_run_status = 'success', last_run_message = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`)
-      .bind(now.toISOString(), message, job.id).run();
+    await env.DB.batch(cronFinishStatements(env, logId, job.id, 'success', message, now));
     return { success: true, message };
   } catch (e) {
-    await logCronFinish(env, logId, 'failed', e.message);
-    await env.DB.prepare(`UPDATE cron_jobs SET last_run_at = ?, last_run_status = 'failed', last_run_message = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`)
-      .bind(now.toISOString(), e.message, job.id).run();
+    await env.DB.batch(cronFinishStatements(env, logId, job.id, 'failed', e.message, now));
     return { success: false, message: e.message };
   }
 }
@@ -3087,18 +3380,39 @@ function matchCronField(parts, value) {
 
 // 内部定时任务：重算月均价（核心逻辑，返回数据对象）
 async function recalcMonthlyAverages(env) {
-  const { results: products } = await env.DB.prepare('SELECT id FROM products').all();
-  let count = 0;
-  for (const p of products) {
-    const { results: months } = await env.DB.prepare(`
-      SELECT DISTINCT strftime('%Y-%m', trade_date) as ym FROM daily_prices WHERE product_id = ?
-    `).bind(p.id).all();
-    for (const m of months) {
-      await updateMonthlyAverage(p.id, m.ym + '-01', env);
-      count++;
-    }
-  }
-  return { success: true, message: `完成：重新计算 ${products.length} 个产品共 ${count} 条月均价` };
+  // 一条聚合 SQL 全量重算，再用一条 DELETE 清理已无数据的月份；
+  // 原来是「产品 × 月份」双重循环，每个组合 2 条语句，月数多了会打出上百次数据库往返
+  const [insertResult] = await env.DB.batch([
+    env.DB.prepare(`
+      INSERT OR REPLACE INTO monthly_averages
+      (product_id, year_month, avg_price, days_count, low_price, high_price, created_at, updated_at)
+      SELECT
+        d.product_id,
+        substr(d.trade_date, 1, 7) as year_month,
+        ROUND(AVG(d.avg_price), 2) as avg_price,
+        COUNT(*) as days_count,
+        MIN(d.low_price) as low_price,
+        MAX(d.high_price) as high_price,
+        COALESCE(ma.created_at, CURRENT_TIMESTAMP),
+        CURRENT_TIMESTAMP
+      FROM daily_prices d
+      LEFT JOIN monthly_averages ma
+        ON ma.product_id = d.product_id
+       AND ma.year_month = substr(d.trade_date, 1, 7)
+      GROUP BY d.product_id, substr(d.trade_date, 1, 7)
+    `),
+    env.DB.prepare(`
+      DELETE FROM monthly_averages
+      WHERE NOT EXISTS (
+        SELECT 1 FROM daily_prices d
+        WHERE d.product_id = monthly_averages.product_id
+          AND substr(d.trade_date, 1, 7) = monthly_averages.year_month
+      )
+    `)
+  ]);
+
+  const affected = (insertResult && insertResult.meta) ? insertResult.meta.changes : 0;
+  return { success: true, message: `完成：重新计算 ${affected} 条月均价` };
 }
 
 // 内部定时任务：重算月均价（HTTP 入口）
@@ -3112,17 +3426,22 @@ async function handleInternalRecalc(env) {
 
 // 内部定时任务：数据完整性检查（核心逻辑，返回数据对象）
 async function checkDataIntegrity(env) {
-  const { results: products } = await env.DB.prepare('SELECT id, code, name FROM products WHERE is_active = 1').all();
   // 获取中国时区（UTC+8）当前日期和星期
   // 通过 epoch 加 8h 后用 getUTC* 方法取得北京时间
   const chinaNow = new Date(Date.now() + 8 * 60 * 60 * 1000);
   const today = chinaNow.toISOString().slice(0, 10);
   const dow = chinaNow.getUTCDay();  // 等价于北京时间星期几
   if (dow === 0 || dow === 6) return { success: true, message: '今天非工作日，跳过数据完整性检查' };
+
+  // 产品列表与当日已有报价并行查询，避免逐个产品各打一次数据库
+  const [{ results: products }, { results: existing }] = await Promise.all([
+    env.DB.prepare('SELECT id, code, name FROM products WHERE is_active = 1').all(),
+    env.DB.prepare('SELECT DISTINCT product_id FROM daily_prices WHERE trade_date = ?').bind(today).all()
+  ]);
+  const recorded = new Set((existing || []).map(r => r.product_id));
   const messages = [];
   for (const p of products) {
-    const record = await env.DB.prepare('SELECT id FROM daily_prices WHERE product_id = ? AND trade_date = ?').bind(p.id, today).first();
-    if (!record) messages.push(`${p.name}(${p.code}) 缺少 ${today} 报价`);
+    if (!recorded.has(p.id)) messages.push(`${p.name}(${p.code}) 缺少 ${today} 报价`);
   }
   return { success: true, message: messages.length > 0 ? '缺失数据：\n' + messages.join('\n') : '所有产品今日数据完整' };
 }
@@ -3190,24 +3509,34 @@ async function executeCronTask(job, env) {
 
 // 定时任务调度入口：由 scheduled() 调用，URL 驱动
 async function handleScheduledTask(event, env) {
-  // 兜底迁移：即使从未访问过后台/写接口，定时任务触发时也会补齐表结构
-  await ensurePriceSchema(env);
-
-  // 先记录心跳时间戳（前置，即使后续 DB 查询失败也能检测到触发）
-  await setSetting('last_heartbeat_at', new Date().toISOString(), '最近一次 Cron 心跳触发时间（UTC）', env);
-
-  // 清理残留的运行中日志（超过 30 分钟仍未结束的标记为超时）
+  // 表结构迁移不在此执行：所有写接口入口与部署后的 isolate 已完成迁移，
+  // 每 5 分钟重跑只会产生必然失败的 ALTER 与 DROP TRIGGER 噪音。
+  // 心跳写入与两条清理合并为一次 batch，3 次 D1 往返降为 1 次。
   try {
-    await cleanupStaleRunningLogs(env);
+    await env.DB.batch([
+      env.DB.prepare(`
+        INSERT INTO system_settings (key, value, description, updated_at)
+        VALUES (?, ?, COALESCE(?, ''), CURRENT_TIMESTAMP)
+        ON CONFLICT(key) DO UPDATE SET
+          value = excluded.value,
+          description = COALESCE(?, description),
+          updated_at = CURRENT_TIMESTAMP
+      `).bind('last_heartbeat_at', new Date().toISOString(), null, null),
+      env.DB.prepare(`
+        UPDATE cron_logs
+        SET status = 'timeout', message = '任务中断/超时，已自动清理', finished_at = CURRENT_TIMESTAMP
+        WHERE status = 'running' AND started_at < datetime('now', ?)
+      `).bind('-30 minutes'),
+      // 清理已过窗口期的登录限流记录，避免伪造 username|ip 组合无限残留
+      env.DB.prepare('DELETE FROM login_attempts WHERE reset_at < ?')
+        .bind(Date.now() - LOGIN_WINDOW_MS),
+      // 日志表保留期 90 天：cron 每 5 分钟最多一条、webhook 每次采集一条，
+      // 不限保留期会无限增长；后台统计只查最近 30 天，90 天足够回溯排障
+      env.DB.prepare("DELETE FROM cron_logs WHERE started_at < datetime('now', '-90 days')"),
+      env.DB.prepare("DELETE FROM webhook_logs WHERE created_at < datetime('now', '-90 days')")
+    ]);
   } catch (e) {
-    // 清理失败不影响后续任务
-  }
-
-  // 清理已过窗口期的登录限流记录，避免伪造 username|ip 组合无上限残留
-  try {
-    await cleanupExpiredLoginAttempts(env);
-  } catch (e) {
-    // 清理失败不影响后续任务
+    // 心跳/清理失败不影响后续任务调度
   }
 
   // 以 Cloudflare 传入的 scheduledTime 作为匹配基准，避免冷启动/延迟导致与心跳边界错位；
